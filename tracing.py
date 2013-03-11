@@ -11,7 +11,7 @@ log = None
 # @param fileName The trace-file-name.
 # @param toConsole When True show traces to console.
 # @param debugOn When True show debug-traces.
-def setupTraces(enabled, path, fileName, toConsole, debugOn):
+def setupTraces(enabled, path, fileName, toConsole, toFile, debugOn):
 	global log
 
 	if enabled:
@@ -29,11 +29,12 @@ def setupTraces(enabled, path, fileName, toConsole, debugOn):
 			sth = logging.StreamHandler()
 			sth.setLevel(level)
 			log.addHandler(sth)
-		fd = logging.handlers.RotatingFileHandler(path + fileName, maxBytes=1048576, backupCount=5)
-		fmt = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-		fd.setFormatter(fmt)
-		fd.setLevel(level)
-		log.addHandler(fd)
+		if toFile == True:
+			fd = logging.handlers.RotatingFileHandler(path + fileName, maxBytes=1048576, backupCount=5)
+			fmt = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+			fd.setFormatter(fmt)
+			fd.setLevel(level)
+			log.addHandler(fd)
 	else:
 		log = LogDummy()
 
