@@ -18,7 +18,7 @@ def setupTraces(enabled, path, fileName, toConsole, toFile, debugOn):
 		import logging
 		import logging.handlers
 
-		log = logging.getLogger("localsettings_app")
+		log = logging.getLogger(fileName)
 		if debugOn == True:
 			level = logging.DEBUG
 		else:
