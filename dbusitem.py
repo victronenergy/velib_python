@@ -131,7 +131,7 @@ class Dbusitem(object):
 				self._valid = changes[prop]
 				#tracing.log.info("valid changed %s %d" % (self.object.object_path, self._valid))
 
-		if self._eventCallback and self.valid:
+		if self._eventCallback:
 			self._eventCallback(self.object.object_path, self._value, self._text)
 
 		#tracing.log.info(self.object.object_path + " changed to " + str(self._value) + " / " + self._text)
