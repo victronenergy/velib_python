@@ -3,6 +3,11 @@ import dbus
 from dbusitem import Dbusitem
 import tracing
 
+## Indexes for the setting dictonary.
+VALUE = 0
+MINIMUM = 1
+MAXIMUM = 2
+
 ## The Settings Device class.
 #
 # The dbus-services are added as a instance of the SettingsDevice-class.
@@ -70,4 +75,22 @@ class SettingsDevice(object):
 	def getValue(self, setting):
 		value = self._settings[setting].value
 		return value
+
+## Check the setting device is our setting are available.
+#
+# Check if settings are missing and adds them.
+# After adding new settings the tree of settingsDevice is refreshed.
+# @param settingsDevice the dbus settings device
+# @param settings the settings dictonary
+def checkSettingsDevice(settingsDevice, settings):
+	# Check if the required settings are available.
+	settingsAdded = False
+	paths = settingsDevice.getPaths()
+	for setting in settings:
+		if setting not in paths:
+			settingsDevice.addSetting(setting, settings[setting][VALUE], settings[setting][MINIMUM], settings[setting][MAXIMUM])
+			settingsAdded = True
+	if settingsAdded is True:
+		tracing.log.info("Introspecting settings (after adding settings): %s" % settingsDevice)
+		settingsDevice.refreshTree()
 
