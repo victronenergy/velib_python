@@ -102,7 +102,7 @@ class Dbusitem(object):
 	
 	def Valid(self):
 		if self._valid is None:
-			self._valid = self.object.Get("com.victronenergy.BusItem", "Valid") 
+			self._valid = self.object.GetValid() 
 		return self._valid
 
 	valid = property(Valid)
@@ -131,7 +131,7 @@ class Dbusitem(object):
 				self._valid = changes[prop]
 				#tracing.log.info("valid changed %s %d" % (self.object.object_path, self._valid))
 
-		if self._eventCallback:
+		if self._eventCallback and self.valid:
 			self._eventCallback(self.object.object_path, changes)
 
 		#tracing.log.info(self.object.object_path + " changed to " + str(self._value) + " / " + self._text)
