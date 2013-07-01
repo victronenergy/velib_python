@@ -18,7 +18,7 @@ class SettingsDevice(object):
 	# @param name the dbus-service-name.
 	# @param tree the tree of dbus-items.
 	# @param eventCallback the callback function for the trigger-events
-	def __init__(self, bus, name, tree, mainGroup, supportedSettings, eventCallback):
+	def __init__(self, bus, name, mainGroup, supportedSettings, eventCallback):
 		self._bus = bus
 		self._dbus_name = name
 		self._eventCallback = eventCallback
@@ -26,8 +26,8 @@ class SettingsDevice(object):
 		self._addGroup = None
 		self._supportedSettings = supportedSettings
 		self._settings = {}
-		self._tree = tree
-		tree.foreach(self.__add_item)
+		self._tree = Dbusitem(bus, name, '/')
+		self._tree.foreach(self.__add_item)
 		
 	def __del__(self):
 		tracing.log.debug('SettingsDevice __del__')
