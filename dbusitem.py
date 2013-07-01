@@ -14,7 +14,7 @@ class Dbusitem(object):
 	# @param service th dbus-service-name.
 	# @param path initially the path is \ (root).
 	def __init__(self, bus, service, path):
-		tracing.log.debug('Dbusitem __init__ %s %s %s' % (self, service, path))
+		#tracing.log.debug('Dbusitem __init__ %s %s %s' % (self, service, path))
 		self._children = {}
 		self._value = None
 		self._text = None
