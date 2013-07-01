@@ -22,7 +22,7 @@ class Dbusitem(object):
 		self._eventCallback = None
 		self._object = bus.get_object(service, path)
 		self._add_children(bus, service)
-		self._match = self.object.connect_to_signal("PropertiesChanged", self._properties_changed_handler)
+		self._match = None
 
 	def __del__(self):
 		tracing.log.debug('Dbusitem __del__ %s %s' % (self, self.object.object_path))
@@ -49,14 +49,19 @@ class Dbusitem(object):
 				child_path += "/"
 			child_path += name
 			self._children[name] = Dbusitem(bus, service, child_path)
-			
+	
+	def _add_to_prop_changed(self):
+		if self._match is None:
+			self._match = self.object.connect_to_signal("PropertiesChanged", self._properties_changed_handler)
+
 	def _delete(self):
 		for name in self._children:
 			self._children[name]._delete()
 		tracing.log.debug('Dbusitem _delete %s %s' % (self, self.object.object_path))
 		self._children = None
-		self._match.remove()
-		del(self._match)
+		if self._match:
+			self._match.remove()
+			del(self._match)
 
 	@property
 	def object(self):
@@ -87,7 +92,7 @@ class Dbusitem(object):
 
 	## Returns the value of the dbus-item.
 	def GetValue(self):
-		if self._value is None:
+		if self._value is None or self._match is None:
 			self._value = self.object.GetValue()
 		#tracing.log.debug('value %s %s type %s' % (self.object.object_path, str(self._value), type(self._value)))
 		
@@ -101,7 +106,7 @@ class Dbusitem(object):
 	value = property(GetValue, SetValue)
 	
 	def Valid(self):
-		if self._valid is None:
+		if self._valid is None or self._match is None:
 			self._valid = self.object.GetValid() 
 		return self._valid
 
@@ -114,7 +119,7 @@ class Dbusitem(object):
 
 	@property
 	def text(self):
-		if self._text is None:
+		if self._text is None or self._match is None:
 			self._text = self.object.GetText()
 		return self._text
 

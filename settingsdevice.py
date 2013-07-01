@@ -48,10 +48,12 @@ class SettingsDevice(object):
 		if dbusitem.object.object_path in self._supportedSettings:
 			tracing.log.info("Found setting: %s" % dbusitem.object.object_path)
 			self._settings[dbusitem.object.object_path] = dbusitem
+			dbusitem._add_to_prop_changed()
 			if self._eventCallback:
 				dbusitem.SetEventCallback(self._eventCallback)
 		elif dbusitem.object.object_path == self._mainGroup:
 			self._addGroup = dbusitem
+			dbusitem._add_to_prop_changed()
 
 	## Returns the dbus-service-name which represents the Victron-Settings-device.
 	def __str__(self):
