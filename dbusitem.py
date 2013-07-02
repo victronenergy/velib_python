@@ -52,6 +52,9 @@ class Dbusitem(object):
 	
 	def _add_to_prop_changed(self):
 		if self._match is None:
+			self._value = None
+			self._text = None
+			self._valid = None
 			self._match = self.object.connect_to_signal("PropertiesChanged", self._properties_changed_handler)
 
 	def _delete(self):
@@ -134,10 +137,9 @@ class Dbusitem(object):
 				self._text = changes[prop]
 			elif prop == "Valid":
 				self._valid = changes[prop]
-				#tracing.log.info("valid changed %s %d" % (self.object.object_path, self._valid))
 
 		if self._eventCallback:
 			self._eventCallback(self.object.object_path, changes)
 
-		#tracing.log.info(self.object.object_path + " changed to " + str(self._value) + " / " + self._text)
+		#tracing.log.debug("%s %s changed to %s" % (self.object.bus_name, self.object.object_path, changes))
 
