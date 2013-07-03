@@ -16,6 +16,7 @@ class Dbusitem(object):
 	def __init__(self, bus, service, path):
 		#tracing.log.debug('Dbusitem __init__ %s %s %s' % (self, service, path))
 		self._children = {}
+		self._dbus_name = service
 		self._value = None
 		self._text = None
 		self._valid = None
@@ -139,7 +140,7 @@ class Dbusitem(object):
 				self._valid = changes[prop]
 
 		if self._eventCallback:
-			self._eventCallback(self.object.object_path, changes)
+			self._eventCallback(self._dbus_name, self.object.object_path, changes)
 
 		#tracing.log.debug("%s %s changed to %s" % (self.object.bus_name, self.object.object_path, changes))
 
