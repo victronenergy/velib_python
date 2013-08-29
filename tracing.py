@@ -27,6 +27,8 @@ def setupTraces(enabled, path, fileName, toConsole, toFile, debugOn):
 		log.disabled = not enabled
 		if toConsole == True:
 			sth = logging.StreamHandler()
+			fmt = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+			sth.setFormatter(fmt)
 			sth.setLevel(level)
 			log.addHandler(sth)
 		if toFile == True:
