@@ -1,3 +1,4 @@
+import dbus
 # Python imports
 from dbus import String
 from lxml.etree import XML
@@ -110,8 +111,8 @@ class Dbusitem(object):
 	value = property(GetValue, SetValue)
 	
 	def Valid(self):
-		if self._valid is None or self._match is None:
-			self._valid = self.object.GetValid() 
+		value = self.GetValue()
+		self._valid = value != dbus.Array([])
 		return self._valid
 
 	valid = property(Valid)
