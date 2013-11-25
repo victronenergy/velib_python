@@ -49,3 +49,9 @@ class LogDummy(object):
 		
 	def debug(self, str, *args):
 		self._str = str
+	
+	def warning(self, str, *args):
+		print("Warning: " + (str % args))
+
+	def error(self, str, *args):
+		print("Error: " + (str % args))
