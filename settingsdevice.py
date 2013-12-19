@@ -1,6 +1,6 @@
 import dbus
 # Local imports
-from dbusitem import Dbusitem
+from busitem import BusItem
 import tracing
 
 ## Indexes for the setting dictonary.
@@ -26,34 +26,35 @@ class SettingsDevice(object):
 		self._addGroup = None
 		self._supportedSettings = supportedSettings
 		self._settings = {}
-		self._tree = Dbusitem(bus, name, '/')
-		self._tree.foreach(self.__add_item)
+		self._addItems(bus, name)
 		
 	def __del__(self):
-		tracing.log.debug('SettingsDevice __del__')
+		tracing.log.info('SettingsDevice __del__')
+		self._deleteSettings()
+
+	def _deleteSettings(self):
+		for setting in self._settings:
+			if setting:
+				self._settings[setting].delete()
 		self._settings = {}
-		self._tree._delete()
 
 	def refreshTree(self):
-		#self._tree.updateChildNodes(self._bus, self._dbus_name)
-		self._settings = {}
-		self._tree._delete()
-		self._tree = Dbusitem(self._bus, self._dbus_name, '/')
-		self._tree.foreach(self.__add_item)
+		self._deleteSettings()
+		self._addItems(self._bus, self._dbus_name)
 
 	## Adds the dbus-item to the _settings (if supported).
 	# And sets the callback per dbus-item.
-	# @param dbusitem the dbus-item.
-	def __add_item(self, dbusitem):
-		if dbusitem.object.object_path in self._supportedSettings:
-			tracing.log.info("Found setting: %s" % dbusitem.object.object_path)
-			self._settings[dbusitem.object.object_path] = dbusitem
-			dbusitem._add_to_prop_changed()
-			if self._eventCallback:
-				dbusitem.SetEventCallback(self._eventCallback)
-		elif dbusitem.object.object_path == self._mainGroup:
-			self._addGroup = dbusitem
-			dbusitem._add_to_prop_changed()
+	# @param bus the system/session bus
+	# @param name the service-name
+	def _addItems(self, bus, name):
+		for path in self._supportedSettings:
+			busitem = BusItem(bus, name, path)
+			if busitem.valid:
+				tracing.log.info("Found setting: %s" % path)
+				self._settings[path] = busitem
+				if self._eventCallback:
+					busitem.SetEventCallback(self._eventCallback)
+		self._addGroup = BusItem(bus, name, self._mainGroup)
 
 	## Returns the dbus-service-name which represents the Victron-Settings-device.
 	def __str__(self):
@@ -93,6 +94,6 @@ def checkSettingsDevice(settingsDevice, settings):
 			settingsDevice.addSetting(setting, settings[setting][VALUE], settings[setting][MINIMUM], settings[setting][MAXIMUM])
 			settingsAdded = True
 	if settingsAdded is True:
-		tracing.log.info("Introspecting settings (after adding settings): %s" % settingsDevice)
+		tracing.log.info("Refresh settings (after adding settings): %s" % settingsDevice)
 		settingsDevice.refreshTree()
 
