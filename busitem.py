@@ -12,7 +12,9 @@ class BusItem(object):
 	# @param service the dbus-service-name.
 	# @param path the object-path.
 	def __init__(self, bus, service, path):
-		try:
+		# MVA 2014-1-5: removed the error handling here. I don't see why an error should only result 
+		# in tracing an error. Better to just let the whole thing crash and let Python print callstack etc.
+#		try:
 			#tracing.log.info("Busitem %s %s" % (service, path))
 			self._dbus_name = service
 			self._path = path
@@ -21,8 +23,8 @@ class BusItem(object):
 			self._eventCallback = None
 			self._object = bus.get_object(service, path)
 			self._match = self._object.connect_to_signal("PropertiesChanged", self._properties_changed_handler)
-		except Exception, ex:
-			tracing.log.error("Busitem __init__ exception: %s" % ex)
+#		except Exception, ex:
+#			tracing.log.error("Busitem __init__ exception: %s" % ex)
 
 	def __del__(self):
 		tracing.log.info('Busitem __del__ %s %s' % (self._dbus_name, self._path))
@@ -31,10 +33,6 @@ class BusItem(object):
 		if self._match:
 			self._match.remove()
 			del(self._match)
-
-	def AddSetting(self, group, name, defaultValue, itemType, minimum, maximum):
-		tracing.log.info('%s AddSetting %s %s %s %s %s %s' % (self._path, group, name, defaultValue, itemType, minimum, maximum))
-		self._object.AddSetting(group, name, defaultValue, itemType, minimum, maximum)
 
 	## Returns the value of the dbus-item.
 	def GetValue(self):
