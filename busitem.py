@@ -1,3 +1,8 @@
+## IMPORTANT NOTE - MVA 2015-2-5 
+# This file is deprecated. Use the classes in vedbus.py from now on. If you are
+# working on some project, please change it, and make it work with the classes
+# in vedbus.py
+
 import dbus
 
 # Local imports

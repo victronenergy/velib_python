@@ -1,3 +1,7 @@
+## IMPORTANT NOTE - MVA 2015-2-5 
+# Have not really looked at below code yet, but it is highly probable
+# that it could be an overload of a class in vedbus.py
+
 import dbus
 # Local imports
 from busitem import BusItem
