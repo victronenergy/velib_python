@@ -22,20 +22,11 @@ class VeDbusItemImport(object):
 	# @param service the dbus-service-name.
 	# @param path the object-path.
 	def __init__(self, bus, service, path, eventCallback = None):
-		# MVA 2014-1-5: removed the error handling here. I don't see why an 
-		# error should only result in tracing an error. Better to just let 
-		# the whole thing crash and let Python print callstack etc.
-#		try:
-			#tracing.log.info("Busitem %s %s" % (service, path))
-			self._dbus_name = service
-			self._path = path
-			self._value = None
-			self._text = None
-			self._eventCallback = eventCallback
-			self._object = bus.get_object(service, path)
-			self._match = self._object.connect_to_signal("PropertiesChanged", self._properties_changed_handler)
-#		except Exception, ex:
-#			tracing.log.error("Busitem __init__ exception: %s" % ex)
+		self._dbus_name = service
+		self._path = path
+		self._eventCallback = eventCallback
+		self._object = bus.get_object(service, path)
+		self._match = None if self._eventCallback == None else self._object.connect_to_signal("PropertiesChanged", self._properties_changed_handler)
 
 	def delete(self):
 		if self._match:
@@ -46,40 +37,26 @@ class VeDbusItemImport(object):
 		return self._path
 		
 	## Returns the value of the dbus-item.
+	# the type will be a dbus variant, for example dbus.Int32(0, variant_level=1)
 	def GetValue(self):
-		if self._value is None:
-			# mva 2014-2-2 Why this try? Why not let it crash? Outcommented the try for now.
-			# todo probably does need something around invalidating
-			# try:
-				self._value = self._object.GetValue()
-			#except:
-			#	tracing.log.info("Value exception %s %s" % (self._dbus_name, self._path))
-			#	self._value = dbus.Array([])
-		return self._value
+		return self._object.GetValue()
 
-	value = property(GetValue)
-	
-	def Valid(self):
-		value = self.GetValue()
-		valid = (value != dbus.Array([]))
-		return valid
+	## Returns a boolean. For com.victronenergy.BusItem, the definition is that invalid values
+	# are represented as an empty array.
+	def isValid(self):
+		return self.GetValue() != dbus.Array([])
 
-	valid = property(Valid)
+	## Returns the text representation of the value. For example when the value is an enum/int
+	# GetText might return the string belonging to that enum value. Another example, for a
+	# voltage, GetValue would return a float, 12.0Volt, and GetText could return 12 VDC.
+	# Note that this depends on how the dbus-producer has implemented this.
+	def GetText(self):
+		return self._object.GetText()
 
 	## Sets the callback for the trigger-event.
 	# @param eventCallback the event-callback-funciton.	
 	def SetEventCallback(self, eventCallback):
 		self._eventCallback = eventCallback
-
-	@property
-	def text(self):
-		# mva todo : why the if, why the try / catch?
-		if self._text is None or self._match is None:
-			try:
-				self._text = self._object.GetText()
-			except Exception, ex:
-				print("GetText exception %s %s" % (self._dbus_name, self._path))
-		return self._text
 
 	## Is called when the value of a bus-item changes.
 	# When the event-callback is set it calls this function.
@@ -92,18 +69,20 @@ class VeDbusItemImport(object):
 
 
 class VeDbusItemExport(dbus.service.Object):
-	## Constructor of veDbusOject
+	## Constructor of VeDbusItemExport
 	#
 	# Use this object to export (publish), values on the dbus
 	# Creates the dbus-object under the given dbus-service-name.
-	# @param busName Return value from dbus.service.BusName, see run()).
+	# @param bus The dbus object.
 	# @param objectPath The dbus-object-path.
-	def __init__(self, busName, objectPath, value = 0, isValid = False, description = '', callback = None):
-		dbus.service.Object.__init__(self, busName, objectPath)
+	# @param callback, a function that will be called when someone else changes the value of this VeBusItem over the dbus
+	def __init__(self, bus, objectPath, value = 0, isValid = False, description = '', callback = None):
+		dbus.service.Object.__init__(self, bus, objectPath)
 		self._callback = callback
 		self._value = value
 		self._description = description
 		self._isValid = isValid
+		print 'init ' + objectPath
 
 	## Dbus method GetDescription
 	#
