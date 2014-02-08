@@ -19,16 +19,6 @@ softwareVersion = '1.0'
 # Dictionary containing all objects exported to dbus
 dbusObjects = {}
 
-def handleDbusNameOwnerChanged(name, oldOwner, newOwner):
-		#print('handlerNameOwnerChanged name=%s oldOwner=%s newOwner=%s' % (name, oldOwner, newOwner))
-		#decouple, and process in main loop
-		#idle_add(processNameOwnerChanged, name, oldOwner, newOwner)
-		pass
-
-def processNameOwnerChanged(name, oldOwner, newOwner):
-		#print 'processingNameOwnerChanged'
-		pass
-
 def addDbusOject(dictionary, dbusConn, path, value, isValid = True, description = '', callback = None):
 		dbusObjects[path] = VeDbusItemExport(dbusConn, path, value, isValid, description, callback)
 
@@ -42,20 +32,19 @@ def main(argv):
 
 		# For a PC, connect to the SessionBus
 		# For a CCGX, connect to the SystemBus
-		# Todo: do this automatically?
-		dbusConn = dbus.SessionBus()
+		dbusConn = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
 
 		# Register ourserves on the dbus, fake that we are a Quattro
 		name = dbus.service.BusName("com.victronenergy.dbusexample", dbusConn)
 
-		# subscribe to NameOwnerChange for bus connect / disconnect events.
-		dbusConn.add_signal_receiver(handleDbusNameOwnerChanged, signal_name='NameOwnerChanged')
-
 		# Create the management objects, as specified in the ccgx dbus-api document
-		addDbusOject(dbusObjects, dbusConn, '/String', 'this is a string')
-		addDbusOject(dbusObjects, dbusConn, '/Int', 0)
-		addDbusOject(dbusObjects, dbusConn, '/NegativeInt', -10)
-		addDbusOject(dbusObjects, dbusConn, '/Float', 1.5)
+
+		# Keep a reference in the global dictionary. Without this they would be removed by
+		# garbage collector again.
+		dbusObjects['string'] = VeDbusItemExport(dbusConn, '/String', 'this is a string')
+		dbusObjects['int'] = VeDbusItemExport(dbusConn, '/Int', 0)
+		dbusObjects['negativeInt'] = VeDbusItemExport(dbusConn, '/NegativeInt', -10)
+		dbusObjects['float'] = VeDbusItemExport(dbusConn, '/Float', 1.5)
 
 		# Start and run the mainloop
 		print 'To see the list of objects that I export, run dbus com.victronenergy.dbusexample'
