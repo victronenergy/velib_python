@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Some tests, to do type checking of vedbus.py
+# This file has some tests, to do type checking of vedbus.py
 # This file makes it easy to compare the values put on the dbus through
 # Python (vedbus.VeDbusItemExport) with items exported in C (the mk2dbus process)
 
@@ -20,19 +20,23 @@ dbusConn = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.Sessio
 # dictionary containing the different items
 dbusObjects = {}
 
+# check if the vbus.ttyO1 exists (it normally does on a ccgx, and for linux a pc, there is
+# some emulator.
+hasVEBus = 'com.victronenergy.vebus.ttyO1' in dbusConn.list_names()
+
 dbusObjects['PyString'] = VeDbusItemImport(dbusConn, 'com.victronenergy.dbusexample', '/String')
-dbusObjects['C_string'] = VeDbusItemImport(dbusConn, 'com.victronenergy.vebus.ttyO1', '/Mgmt/ProcessName')
+if hasVEBus: dbusObjects['C_string'] = VeDbusItemImport(dbusConn, 'com.victronenergy.vebus.ttyO1', '/Mgmt/ProcessName')
 
 dbusObjects['PyFloat'] = VeDbusItemImport(dbusConn, 'com.victronenergy.dbusexample', '/Float')
-dbusObjects['C_float'] = VeDbusItemImport(dbusConn, 'com.victronenergy.vebus.ttyO1', '/Dc/V')
+if hasVEBus: dbusObjects['C_float'] = VeDbusItemImport(dbusConn, 'com.victronenergy.vebus.ttyO1', '/Dc/V')
 
 dbusObjects['PyInt'] = VeDbusItemImport(dbusConn, 'com.victronenergy.dbusexample', '/Int')
-dbusObjects['C_int'] = VeDbusItemImport(dbusConn, 'com.victronenergy.vebus.ttyO1', '/State')
+if hasVEBus: dbusObjects['C_int'] = VeDbusItemImport(dbusConn, 'com.victronenergy.vebus.ttyO1', '/State')
 
 dbusObjects['PyNegativeInt'] = VeDbusItemImport(dbusConn, 'com.victronenergy.dbusexample', '/NegativeInt')
-dbusObjects['C_negativeInt'] = VeDbusItemImport(dbusConn, 'com.victronenergy.vebus.ttyO1', '/Dc/I')
+if hasVEBus: dbusObjects['C_negativeInt'] = VeDbusItemImport(dbusConn, 'com.victronenergy.vebus.ttyO1', '/Dc/I')
 
-
+# print the results
 for key, o in dbusObjects.items():
 	print key + ' at ' + o.GetServiceName() + o.GetPath()
 	print ''

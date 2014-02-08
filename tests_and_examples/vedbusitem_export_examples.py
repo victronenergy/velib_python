@@ -34,7 +34,7 @@ def main(argv):
 		# For a CCGX, connect to the SystemBus
 		dbusConn = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
 
-		# Register ourserves on the dbus, fake that we are a Quattro
+		# Register ourserves on the dbus as a service
 		name = dbus.service.BusName("com.victronenergy.dbusexample", dbusConn)
 
 		# Create the management objects, as specified in the ccgx dbus-api document
