@@ -1,9 +1,15 @@
 import dbus
 import dbus.service
+import logging
 
 # vedbus contains two classes:
 # VeDbusItemImport -> use this to read data from the dbus, ie import
 # VeDbusItemExport -> use this to export data to the dbus
+
+# Code for VeDbusItemImport is copied from busitem.py and thereafter modified.
+# All projects that used busitem.py need to migrate to this package. And some
+# projects used to define there own equivalent of VeDbusItemExport. Better to
+# use that.
 
 # TODOS (last update mva 2014-2-8)
 # 1 check for datatypes, it works now, but not sure if all is compliant with
@@ -11,7 +17,7 @@ import dbus.service
 #	tests_and_examples/
 # 2 Shouldn't VeDbusBusItemExport inherit dbus.service.Object?
 # 3	do we want VeDbusItemImport to keep a local copy of the value, so when
-#	the python code needs it, it doesn need to go on the dbus to get it.
+#	the python code needs it, it doesn need to go on the dbus to get it?
 #	when we do this, also the subscribing to the change signal needs to change,
 #	because it then needs to be done always.
 # 4 implement a mechanism in VeDbusItemExport to have a GetText that is not
@@ -20,16 +26,10 @@ import dbus.service
 #	when supplying a new value, you could also at  that time supply the GetText
 #	string. But that won't work when other processes start changing your values
 #	over the dbus.
-# 5 Consider changing the name eventCallback to changeSignal or something else
-#	more appropriate. Then also change _match, totally unclear to my why it is
-#   named _match.
 # 6 Consider having a global that specifies the value of invalid. And decide
 #   which one is right, see todos in the code.
 #
 # 9 there are probably more todos in the code below.
-
-# Code below is copied from busitem.py and thereafter modified. All projects
-# that used busitem.py need to migrate to this package.
 
 # Some thoughts with regards to the data types:
 #
@@ -65,9 +65,10 @@ class VeDbusItemImport(object):
 		# stored in the bus_getobjectsomewhere?
 		self._serviceName = serviceName
 		self._path = path
-		self._eventCallback = eventCallback
 		self._object = bus.get_object(serviceName, path)
-		self._match = None if self._eventCallback == None else self._object.connect_to_signal("PropertiesChanged", self._properties_changed_handler)
+		self._eventCallback = None
+		self._match = None
+		self.SetEventCallback(eventCallback)
 
 	## delete(self)
 	# Not sure what this is, and who should call this. I copied this over from
@@ -75,6 +76,7 @@ class VeDbusItemImport(object):
 	# __delete__ probably is the standard.
 	def delete(self):
 		if self._match:
+			# remove the signal match from the dbus connection.
 			self._match.remove()
 			del(self._match)
 
@@ -112,6 +114,15 @@ class VeDbusItemImport(object):
 	## Sets the callback for the trigger-event.
 	# @param eventCallback the event-callback-function.
 	def SetEventCallback(self, eventCallback):
+
+		# remove the signalMatch from the dbus connection if we no longer need it
+		if eventCallback == None and self._match != None:
+			self._match.remove()
+
+		# add the signalMatch to the dbus connection if we do need it and didn't have it yet
+		if eventCallback != None and self._match == None:
+			self._match = self._object.connect_to_signal("PropertiesChanged", self._properties_changed_handler)
+
 		self._eventCallback = eventCallback
 
 	## Is called when the value of the imported bus-item changes.
@@ -121,7 +132,7 @@ class VeDbusItemImport(object):
 		if "Value" in changes:
 			self._value = changes["Value"]
 			if self._eventCallback:
-				self._eventCallback(self._dbus_name, self._path, changes)
+				self._eventCallback(self._serviceName, self._path, changes)
 
 
 class VeDbusItemExport(dbus.service.Object):
@@ -157,7 +168,7 @@ class VeDbusItemExport(dbus.service.Object):
 	def local_is_valid(self):
 		# TODO: why is this signature and variant_level specified here? I have seen it without
 		# also: IsValid in the other class
-		return self._value == dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
+		return self._value != dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
 
 	# ==== ALL FUNCTIONS BELOW THIS LINE WILL BE CALLED BY OTHER PROCESSES OVER THE DBUS ====
 
@@ -195,12 +206,12 @@ class VeDbusItemExport(dbus.service.Object):
 	def SetValue(self, value):
 		changes = {}
 		if value != self._value:
-			changes['Value'] = value
 			self._value = value
+			changes['Value'] = value
 			changes['Text'] = self.GetText()
 
 		if len(changes) > 0:
-			print ('VeDbusObject.Properties changed, ' + self._object_path + ', changes:' + str(changes) + ', signalling')
+			logging.debug('VeDbusObject.Properties changed, ' + self._object_path + ', changes:' + str(changes) + ', signalling')
 			self.PropertiesChanged(changes)
 		return 0
 
