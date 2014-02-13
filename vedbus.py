@@ -52,15 +52,15 @@ import logging
 
 #   The signature of a variant is 'v'.
 
-class VeDbusItemImport(object):
 
+class VeDbusItemImport(object):
 	## Constructor
 	# And constructs the tree of dbus-object-paths with their dbus-object.
 	# @param bus			the bus-object (SESSION or SYSTEM).
 	# @param serviceName	the dbus-service-name (string).
 	# @param path			the object-path.
 	# @param eventCallback	function that you want to be called on a value change
-	def __init__(self, bus, serviceName, path, eventCallback = None):
+	def __init__(self, bus, serviceName, path, eventCallback=None):
 		# TODO: is it necessary to store _serviceName and _path? Isn't it
 		# stored in the bus_getobjectsomewhere?
 		self._serviceName = serviceName
@@ -116,11 +116,11 @@ class VeDbusItemImport(object):
 	def SetEventCallback(self, eventCallback):
 
 		# remove the signalMatch from the dbus connection if we no longer need it
-		if eventCallback == None and self._match != None:
+		if eventCallback is None and self._match is not None:
 			self._match.remove()
 
 		# add the signalMatch to the dbus connection if we do need it and didn't have it yet
-		if eventCallback != None and self._match == None:
+		if eventCallback is not None and self._match is None:
 			self._match = self._object.connect_to_signal("PropertiesChanged", self._properties_changed_handler)
 
 		self._eventCallback = eventCallback
@@ -145,8 +145,9 @@ class VeDbusItemExport(dbus.service.Object):
 	# @param value			Value to initialize ourselves with, defaults to 0
 	# @param isValid		Should we initialize with a valid value, defaults to False
 	# @param description	String containing a description. Can be called over the dbus with GetDescription()
-	# @param callback		Function that will be called when someone else changes the value of this VeBusItem over the dbus
-	def __init__(self, bus, objectPath, value = 0, isValid = False, description = '', callback = None):
+	# @param callback		Function that will be called when someone else changes the value of this VeBusItem
+	#                       over the dbus
+	def __init__(self, bus, objectPath, value=0, isValid=False, description='', callback=None):
 		dbus.service.Object.__init__(self, bus, objectPath)
 		self._callback = callback
 		self._value = value
@@ -155,7 +156,7 @@ class VeDbusItemExport(dbus.service.Object):
 	## Sets the value. And in case the value is different from what it was, a signal
 	# will be emitted to the dbus. This function is to be used in the python code that
 	# is using this class to export values to the dbus
-	def local_set_value(self, value, isValid = True):
+	def local_set_value(self, value, isValid=True):
 		# when invalid, set value to the definition of invalid
 		# TODO: why is this signature and variant_level specified here? I have seen it without
 		# also: IsValid in the other class
@@ -179,21 +180,21 @@ class VeDbusItemExport(dbus.service.Object):
 	# @param language A language code (e.g. ISO 639-1 en-US).
 	# @param length Lenght of the language string.
 	# @return description
-	@dbus.service.method('com.victronenergy.BusItem', in_signature = 'si', out_signature = 's')
+	@dbus.service.method('com.victronenergy.BusItem', in_signature='si', out_signature='s')
 	def GetDescription(self, language, length):
 		return self._description
 
 	## Dbus exported method GetValue
 	# Returns the value.
 	# @return the value when valid, and otherwise an empty array
-	@dbus.service.method('com.victronenergy.BusItem', out_signature = 'v')
+	@dbus.service.method('com.victronenergy.BusItem', out_signature='v')
 	def GetValue(self):
 		return self._value
 
 	## Dbus exported method GetText
 	# Returns the value as string of the dbus-object-path.
 	# @return text A text-value or '' (error)
-	@dbus.service.method('com.victronenergy.BusItem', out_signature = 's')
+	@dbus.service.method('com.victronenergy.BusItem', out_signature='s')
 	def GetText(self):
 		return str(self._value) if self.local_is_valid() else '---'
 
@@ -202,7 +203,7 @@ class VeDbusItemExport(dbus.service.Object):
 	# will emit a changed-signal when the value is different from before
 	# @param value The new value.
 	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
-	@dbus.service.method('com.victronenergy.BusItem', in_signature = 'v', out_signature = 'i')
+	@dbus.service.method('com.victronenergy.BusItem', in_signature='v', out_signature='i')
 	def SetValue(self, value):
 		changes = {}
 		if value != self._value:
@@ -211,13 +212,17 @@ class VeDbusItemExport(dbus.service.Object):
 			changes['Text'] = self.GetText()
 
 		if len(changes) > 0:
-			logging.debug('VeDbusObject.Properties changed, ' + self._object_path + ', changes:' + str(changes) + ', signalling')
+			logging.debug(
+					'VeDbusObject.Properties changed, ' + self._object_path + ', changes:' + str(changes) +
+					', signalling'
+				)
+
 			self.PropertiesChanged(changes)
 		return 0
 
 	## The signal that indicates that the value has changed.
 	# Other processes connected to this BusItem object will have subscribed to the
 	# event when they want to track our state.
-	@dbus.service.signal('com.victronenergy.BusItem', signature = 'a{sv}')
+	@dbus.service.signal('com.victronenergy.BusItem', signature='a{sv}')
 	def PropertiesChanged(self, changes):
 		pass
