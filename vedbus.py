@@ -19,10 +19,11 @@ import logging
 # 3	do we want VeDbusItemImport to keep a local copy of the value, so when
 #	the python code needs it, it doesn need to go on the dbus to get it?
 #	when we do this, also the subscribing to the change signal needs to change,
-#	because it then needs to be done always.
+#	because weĺl need to subscribe always, not only when an eventcallback is
+#	given.
 # 4 implement a mechanism in VeDbusItemExport to have a GetText that is not
 #	just str(GetValue()). I see only one option, and that is to allow py code
-#	to register a callback. An other idea that crossed my mind won't work:
+#	to register a function for GetText. Another solution that won't work:
 #	when supplying a new value, you could also at  that time supply the GetText
 #	string. But that won't work when other processes start changing your values
 #	over the dbus.
@@ -217,11 +218,6 @@ class VeDbusItemExport(dbus.service.Object):
 			changes['Text'] = self.GetText()
 
 		if len(changes) > 0:
-			logging.debug(
-					'VeDbusObject.Properties changed, ' + self._object_path + ', changes:' + str(changes) +
-					', signalling'
-				)
-
 			self.PropertiesChanged(changes)
 		return 0
 
