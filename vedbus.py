@@ -66,8 +66,8 @@ class VeDbusItemImport(object):
 		self._serviceName = serviceName
 		self._path = path
 		self._object = bus.get_object(serviceName, path)
-		self._eventCallback = eventCallback
 		self._match = None
+		self.eventCallback = eventCallback
 
 	## delete(self)
 	def __del__(self):
