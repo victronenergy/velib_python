@@ -38,7 +38,7 @@ if hasVEBus: dbusObjects['C_negativeInt'] = VeDbusItemImport(dbusConn, 'com.vict
 
 # print the results
 for key, o in dbusObjects.items():
-	print key + ' at ' + o.GetServiceName() + o.GetPath()
+	print key + ' at ' + o.serviceName + o.path
 	print ''
 	pprint.pprint(dbusObjects[key])
 	print 'pprint veBusItem.GetValue(): '

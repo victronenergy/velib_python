@@ -66,37 +66,37 @@ class VeDbusItemImport(object):
 		self._serviceName = serviceName
 		self._path = path
 		self._object = bus.get_object(serviceName, path)
-		self._eventCallback = None
+		self._eventCallback = eventCallback
 		self._match = None
-		self.SetEventCallback(eventCallback)
 
 	## delete(self)
-	# Not sure what this is, and who should call this. I copied this over from
-	# dbusitem. Doesn't look like a standard python method of an object.
-	# __delete__ probably is the standard.
-	def delete(self):
+	def __del__(self):
 		if self._match:
 			# remove the signal match from the dbus connection.
 			self._match.remove()
 			del(self._match)
 
 	## Returns the path as a string, for example '/AC/L1/V'
-	def GetPath(self):
+	@property
+	def path(self):
 		return self._path
 
 	## Returns the dbus service name as a string, for example com.victronenergy.vebus.ttyO1
-	def GetServiceName(self):
+	@property
+	def serviceName(self):
 		return self._serviceName
 
 	## Returns the value of the dbus-item.
 	# the type will be a dbus variant, for example dbus.Int32(0, variant_level=1)
+	# this is not a property to keep the name consistant with the com.victronenergy.busitem interface
 	def GetValue(self):
 		return self._object.GetValue()
 
 	## Returns False if the value is invalid. Otherwise returns True
 	# In the interface com.victronenergy.BusItem, the definition is that invalid
 	# values are represented as an empty array.
-	def IsValid(self):
+	@property
+	def isValid(self):
 		# TODO: test is dbus.Array([]) is ok. Or if should be
 		# dbus.Array([], signature=dbus.Signature('i'), variant_level=1) instead.
 
@@ -111,9 +111,14 @@ class VeDbusItemImport(object):
 	def GetText(self):
 		return self._object.GetText()
 
-	## Sets the callback for the trigger-event.
+	## callback for the trigger-event.
 	# @param eventCallback the event-callback-function.
-	def SetEventCallback(self, eventCallback):
+	@property
+	def eventCallback(self):
+		return self._eventCallback
+
+	@eventCallback.setter
+	def eventCallback(self, eventCallback):
 
 		# remove the signalMatch from the dbus connection if we no longer need it
 		if eventCallback is None and self._match is not None:
