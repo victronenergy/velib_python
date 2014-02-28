@@ -17,7 +17,8 @@ import logging
 # TODOS (last update mva 2014-2-8)
 # 1 check for datatypes, it works now, but not sure if all is compliant with
 #	com.victronenergy.BusItem interface definition. See also the files in
-#	tests_and_examples/
+#	tests_and_examples. And see 'if type(v) == dbus.Byte:' on line 102. Perhaps
+#	something similar should also be done in VeDbusBusItemExport?
 # 2 Shouldn't VeDbusBusItemExport inherit dbus.service.Object?
 # 3	do we want VeDbusItemImport to keep a local copy of the value, so when
 #	the python code needs it, it doesn need to go on the dbus to get it?
@@ -94,7 +95,14 @@ class VeDbusItemImport(object):
 	# the type will be a dbus variant, for example dbus.Int32(0, variant_level=1)
 	# this is not a property to keep the name consistant with the com.victronenergy.busitem interface
 	def GetValue(self):
-		return self._object.GetValue()
+		v = self._object.GetValue()
+
+		# For some reason, str(dbus.Byte(84)) == 'T'. And bytes on the dbus are not meant to be characters
+		# so, fix that.
+		if type(v) == dbus.Byte:
+			v = int(self._object.GetValue())
+
+		return v
 
 	## Returns False if the value is invalid. Otherwise returns True
 	# In the interface com.victronenergy.BusItem, the definition is that invalid
