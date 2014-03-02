@@ -4,17 +4,19 @@
 import dbus
 import dbus.service
 import logging
+import platform
 
-# vedbus contains two classes:
+# vedbus contains three classes:
 # VeDbusItemImport -> use this to read data from the dbus, ie import
-# VeDbusItemExport -> use this to export data to the dbus
+# VeDbusItemExport -> use this to export data to the dbus (one value)
+# VeDbusService -> use that to create a service and export several values to the dbus
 
 # Code for VeDbusItemImport is copied from busitem.py and thereafter modified.
 # All projects that used busitem.py need to migrate to this package. And some
 # projects used to define there own equivalent of VeDbusItemExport. Better to
 # use that.
 
-# TODOS (last update mva 2014-2-8)
+# TODOS (last update mva 2014-3-1)
 # 1 check for datatypes, it works now, but not sure if all is compliant with
 #	com.victronenergy.BusItem interface definition. See also the files in
 #	tests_and_examples. And see 'if type(v) == dbus.Byte:' on line 102. Perhaps
@@ -25,12 +27,6 @@ import logging
 #	when we do this, also the subscribing to the change signal needs to change,
 #	because weĺl need to subscribe always, not only when an eventcallback is
 #	given.
-# 4 implement a mechanism in VeDbusItemExport to have a GetText that is not
-#	just str(GetValue()). I see only one option, and that is to allow py code
-#	to register a function for GetText. Another solution that won't work:
-#	when supplying a new value, you could also at  that time supply the GetText
-#	string. But that won't work when other processes start changing your values
-#	over the dbus.
 # 6 Consider having a global that specifies the value of invalid. And decide
 #   which one is right, see todos in the code.
 #
@@ -56,6 +52,55 @@ import logging
 #   in python are objects. Even an int is an object.
 
 #   The signature of a variant is 'v'.
+
+
+# Export ourselves as a D-Bus service.
+class VeDbusService(object):
+	def __init__(self, servicename):
+		# dict containing the VeDbusItemExport objects, with their path as the key.
+		self._dbusobjects = {}
+
+		# dict containing the onchange callbacks, for each object. Object path is the key
+		self._onchangecallbacks = {}
+
+		# For a PC, connect to the SessionBus
+		# For a CCGX, connect to the SystemBus
+		self._dbusconn = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
+
+		# Register ourserves on the dbus
+		self._dbusname = dbus.service.BusName(servicename, self._dbusconn)
+
+		logging.info("registered ourselves on D-Bus as %s" % servicename)
+
+	# @param callbackonchange	function that will be called when this value is changed. First parameter will
+	#							be the path of the object, second the new value. This callback should return
+	#							True to accept the change, False to reject it.
+	def add_path(self, path, value, isvalid=True, description="", writeable=False,
+					onchangecallback=None, gettextcallback=None):
+		if onchangecallback is not None:
+			self._onchangecallbacks[path] = onchangecallback
+
+		self._dbusobjects[path] = VeDbusItemExport(
+				self._dbusconn, path, value, isvalid, description, writeable,
+				self._value_changed, gettextcallback)
+
+	# Callback function that is called from the VeDbusItemExport objects when a value changes. This function
+	# maps the change-request to the onchangecallback given to us for this specific path.
+	def _value_changed(self, path, newvalue):
+		if path not in self._onchangecallbacks:
+			return True
+
+		return self._onchangecallbacks[path](path, newvalue)
+
+	def get_value(self, path):
+		return self._dbusobjects[path].GetValue()
+
+	@property
+	def is_valid(self, path):
+		return self._dbusobjects[path].isValid()
+
+	def set_value(self, path, newvalue, isvalid=True):
+		self._dbusobjects[path].local_set_value(newvalue, isvalid)
 
 
 class VeDbusItemImport(object):
@@ -157,18 +202,29 @@ class VeDbusItemExport(dbus.service.Object):
 	#
 	# Use this object to export (publish), values on the dbus
 	# Creates the dbus-object under the given dbus-service-name.
-	# @param bus			The dbus object.
-	# @param objectPath		The dbus-object-path.
-	# @param value			Value to initialize ourselves with, defaults to 0
-	# @param isValid		Should we initialize with a valid value, defaults to False
-	# @param description	String containing a description. Can be called over the dbus with GetDescription()
-	# @param callback		Function that will be called when someone else changes the value of this VeBusItem
-	#                       over the dbus
-	def __init__(self, bus, objectPath, value=0, isValid=False, description='', callback=None):
+	# @param bus		  The dbus object.
+	# @param objectPath	  The dbus-object-path.
+	# @param value		  Value to initialize ourselves with, defaults to 0
+	# @param isValid	  Should we initialize with a valid value, defaults to False
+	# @param description  String containing a description. Can be called over the dbus with GetDescription()
+	# @param writeable	  what would this do!? :).
+	# @param callback	  Function that will be called when someone else changes the value of this VeBusItem
+	#                     over the dbus. First parameter passed to callback will be our path, second the new
+	#					  value. This callback should return True to accept the change, False to reject it.
+	def __init__(self, bus, objectPath, value=0, isValid=True, description=None, writeable=False,
+					onchangecallback=None, gettextcallback=None):
 		dbus.service.Object.__init__(self, bus, objectPath)
-		self._callback = callback
+		self._onchangecallback = onchangecallback
+		self._gettextcallback = gettextcallback
 		self._value = value
 		self._description = description
+		self._writeable = writeable
+
+	## Returns true when the local stored value is valid, and if not, it will return false
+	def local_is_valid(self):
+		# TODO: why is this signature and variant_level specified here? I have seen it without
+		# also: IsValid in the other class
+		return self._value != dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
 
 	## Sets the value. And in case the value is different from what it was, a signal
 	# will be emitted to the dbus. This function is to be used in the python code that
@@ -177,29 +233,50 @@ class VeDbusItemExport(dbus.service.Object):
 		# when invalid, set value to the definition of invalid
 		# TODO: why is this signature and variant_level specified here? I have seen it without
 		# also: IsValid in the other class
-		newvalue = value if isValid else dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
 
-		# call the same function that is also used to change our value over the dbus
-		self.SetValue(newvalue)
+		if not isValid:
+			value = dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
 
-	## Returns true when the local stored value is valid, and if not, it will return false
-	def local_is_valid(self):
-		# TODO: why is this signature and variant_level specified here? I have seen it without
-		# also: IsValid in the other class
-		return self._value != dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
+		self._value = value
+
+		changes = {}
+		changes['Value'] = value
+		changes['Text'] = self.GetText()
+		self.PropertiesChanged(changes)
 
 	# ==== ALL FUNCTIONS BELOW THIS LINE WILL BE CALLED BY OTHER PROCESSES OVER THE DBUS ====
 
+	## Dbus exported method SetValue
+	# Sets the value.
+	# will emit a changed-signal when the value is different from before
+	# @param value The new value.
+	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
+	@dbus.service.method('com.victronenergy.BusItem', in_signature='v', out_signature='i')
+	def SetValue(self, value):
+		if not self._writeable:
+			return 1  # NOT OK
+
+		if value == self._value:
+			return 0  # OK
+
+		# call the callback given to us, and check if new value is OK.
+		if (self._onchangecallback is None or
+				(self._onchangecallback is not None and self._onchangecallback(self.__dbus_object_path__, value))):
+
+			self.local_set_value(value)
+			return 0  # OK
+
+		return 1  # NOT OK
+
 	## Dbus exported method GetDescription
 	#
-	# Returns the a description. Currently not implemented.
-	# Alwayes returns 'no description available'.
+	# Returns the a description.
 	# @param language A language code (e.g. ISO 639-1 en-US).
 	# @param length Lenght of the language string.
 	# @return description
 	@dbus.service.method('com.victronenergy.BusItem', in_signature='si', out_signature='s')
 	def GetDescription(self, language, length):
-		return self._description
+		return self._description if self._description is not None else 'No description given'
 
 	## Dbus exported method GetValue
 	# Returns the value.
@@ -210,27 +287,16 @@ class VeDbusItemExport(dbus.service.Object):
 
 	## Dbus exported method GetText
 	# Returns the value as string of the dbus-object-path.
-	# @return text A text-value or '' (error)
+	# @return text A text-value. '---' when local value is invalid
 	@dbus.service.method('com.victronenergy.BusItem', out_signature='s')
 	def GetText(self):
-		return str(self._value) if self.local_is_valid() else '---'
+		if not self.local_is_valid():
+			return '---'
 
-	## Dbus exported method SetValue
-	# Sets the value.
-	# will emit a changed-signal when the value is different from before
-	# @param value The new value.
-	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
-	@dbus.service.method('com.victronenergy.BusItem', in_signature='v', out_signature='i')
-	def SetValue(self, value):
-		changes = {}
-		if value != self._value:
-			self._value = value
-			changes['Value'] = value
-			changes['Text'] = self.GetText()
+		if self._gettextcallback is None:
+			return str(self._value)
 
-		if len(changes) > 0:
-			self.PropertiesChanged(changes)
-		return 0
+		return self._gettextcallback(self.__dbus_object_path__, self._value)
 
 	## The signal that indicates that the value has changed.
 	# Other processes connected to this BusItem object will have subscribed to the
