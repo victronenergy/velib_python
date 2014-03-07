@@ -179,7 +179,7 @@ class PubnubBase(object):
         return message
 
 
-    def publish(self, args, blocking=False) :
+    def publish(self, args, blocking=True):
         """
         #**
         #* Publish
@@ -614,7 +614,7 @@ class Pubnub(PubnubCore):
         )
         self.pool = Pool(processes=10)  # TODO: Determine right nr. of threads.
 
-    def _request(self, request, callback=None, blocking=False):
+    def _request(self, request, callback=None, blocking=True):
         # If `blocking` is False it will return immediately without data.
         # If `blocking` is True it will return the JSON data from the server
 
