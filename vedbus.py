@@ -149,6 +149,13 @@ class VeDbusItemImport(object):
 
 		return v
 
+	## Writes a new value to the dbus-item
+	def SetValue(self, newvalue):
+		r = self._object.SetValue(newvalue)
+		# TODO check if it was accepted (r == 0), and if it is, update our local copy (at the
+		# time this local copy is finally implemented).
+		return r
+
 	## Returns False if the value is invalid. Otherwise returns True
 	# In the interface com.victronenergy.BusItem, the definition is that invalid
 	# values are represented as an empty array.
@@ -156,8 +163,20 @@ class VeDbusItemImport(object):
 	def isValid(self):
 		# TODO: test is dbus.Array([]) is ok. Or if should be
 		# dbus.Array([], signature=dbus.Signature('i'), variant_level=1) instead.
-
 		return self.GetValue() != dbus.Array([])
+
+	## Returns true of object path exists, and false if it doesn't
+	@property
+	def exists(self):
+		# TODO: do some real check instead of this crazy thing.
+		r = False
+		try:
+			r = self._object.GetValue()
+			r = True
+		except dbus.exceptions.DBusException:
+			pass
+
+		return r
 
 	## Returns the text representation of the value.
 	# For example when the value is an enum/int GetText might return the string
@@ -247,8 +266,8 @@ class VeDbusItemExport(dbus.service.Object):
 	# ==== ALL FUNCTIONS BELOW THIS LINE WILL BE CALLED BY OTHER PROCESSES OVER THE DBUS ====
 
 	## Dbus exported method SetValue
-	# Sets the value.
-	# will emit a changed-signal when the value is different from before
+	# Function is called over the D-Bus by other process. It will first check (via callback) if new
+	# value is accepted. And it is, stores it and emits a changed-signal.
 	# @param value The new value.
 	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
 	@dbus.service.method('com.victronenergy.BusItem', in_signature='v', out_signature='i')
