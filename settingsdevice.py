@@ -1,16 +1,19 @@
-## IMPORTANT NOTE - MVA 2015-2-5 
-# Have not really looked at below code yet, but it is highly probable
-# that it could be an overload of a class in vedbus.py
+## IMPORTANT NOTE - MVA 2014-3-8
+# Have had a short look at this code. And use it in the new vrmlogger. There is a lot that can be
+# improved. But it does seem to work. Cleaned it up a bit as well, and broke the interface...
+# As this was only used by the kwhcounters and the old logscript: who cares!
 
 import dbus
+import logging
+
 # Local imports
 from busitem import BusItem
-import tracing
 
 ## Indexes for the setting dictonary.
-VALUE = 0
-MINIMUM = 1
-MAXIMUM = 2
+PATH = 0
+VALUE = 1
+MINIMUM = 2
+MAXIMUM = 3
 
 ## The Settings Device class.
 # Used by python programs, such as the vrm-logger, to read and write settings they
@@ -27,44 +30,26 @@ class SettingsDevice(object):
 	# @param name the dbus-service-name of the settings dbus service, 'com.victronenergy.settings'
 	# @param supportedSettings dictionary with all setting-names, and their defaultvalue, min and max.
 	# @param eventCallback function that will be called on changes on any of these settings
-	def __init__(self, bus, name, supportedSettings, eventCallback):
+	def __init__(self, bus, supportedSettings, eventCallback, name='com.victronenergy.settings'):
+		logging.debug("===== Settings device init starting... =====")
 		self._bus = bus
 		self._dbus_name = name
 		self._eventCallback = eventCallback
 		self._supportedSettings = supportedSettings
-		self._settings = {}
-		self._addItems(bus, name)
-		
-	def __del__(self):
-		tracing.log.debug('SettingsDevice __del__')
-		self._deleteSettings()
-
-	def _deleteSettings(self):
-		for setting in self._settings:
-			if setting:
-				self._settings[setting].delete()
+		self._values = {} # stored the values, used to pass the old value along on a setting change
 		self._settings = {}
 
-	def refreshTree(self):
-		self._deleteSettings()
-		self._addItems(self._bus, self._dbus_name)
-
-	## Loops through the supportedSettings dictionary
-	# Checks if the path is available, if not adds it.
-	# @param bus the system/session bus
-	# @param name the service-name
-	def _addItems(self, bus, name):
-		import pprint
-		for path in self._supportedSettings:
-			busitem = BusItem(bus, name, path)
+		# Add the items.
+		for setting, options in self._supportedSettings.items():
+			busitem = BusItem(self._bus, self._dbus_name, options[PATH])
 			if busitem.valid:
-				tracing.log.debug("Setting %s found" % path)
+				logging.debug("Setting %s found" % options[PATH])
 			else:
-				tracing.log.debug("Setting %s does not exist yet, adding it" % path)
+				logging.info("Setting %s does not exist yet, adding it" % options[PATH])
 
 				# Prepare to add the setting.
-				name = path.replace('/Settings/', '', 1)
-				value = self._supportedSettings[path][VALUE]
+				path = options[PATH].replace('/Settings/', '', 1)
+				value = options[VALUE]
 				if type(value) == int or type(value) == dbus.Int16 or type(value) == dbus.Int32 or type(value) == dbus.Int64:
 					itemType = 'i'
 				elif type(value) == float or type(value) == dbus.Double:
@@ -73,28 +58,43 @@ class SettingsDevice(object):
 					itemType = 's'
 				
 				# Call the dbus interface AddSetting
-				BusItem(self._bus, self._dbus_name, '/Settings')._object.AddSetting('', name, value, itemType, self._supportedSettings[path][MINIMUM], self._supportedSettings[path][MAXIMUM])
+				BusItem(self._bus, self._dbus_name, '/Settings')._object.AddSetting('', path, value, itemType, options[MINIMUM], options[MAXIMUM])
 
-				busitem = BusItem(bus, name, path)
+				busitem = BusItem(self._bus, self._dbus_name, options[PATH])
 			
 				if not busitem.valid:
 					raise "error, still not valid after trying to add the setting. Something is wrong. Exit."
-					
-			if self._eventCallback:
-					busitem.SetEventCallback(self._eventCallback)
-					
-			self._settings[path] = busitem
-					
+
+			busitem.SetEventCallback(self.handleChangedSetting)
+			self._settings[setting] = busitem
+			self._values[setting] = busitem.value
+
+		logging.debug("===== Settings device init finished =====")
+
+	def handleChangedSetting(self, servicename, path, changes):
+		# TODO: yes yes, below loop is a bit stupid. But as it won't happen often, why would we
+		# TODO: keep a second dictionary just for this?
+		setting = None
+		for s, options in self._supportedSettings.items():
+			if options[PATH] == path:
+				setting = s
+				# TODO: stop for loop, no internet now, and I don't know the syntax
+
+		assert setting is not None
+
+		oldvalue = self._values[setting]
+		self._values[setting] = changes['Value']
+
+		if self._eventCallback is None:
+			return
+
+
+		self._eventCallback(setting, oldvalue, changes['Value'])
 
 	## Returns the dbus-service-name which represents the Victron-Settings-device.
 	def __str__(self):
 		return "SettingsDevice = %s" % self._dbus_name
-	
-	## Returns the found dbus-object-paths
-	def getPaths(self):
-		return list(self._settings)
-	
+		
 	## Return the value of the specified setting (= dbus-object-path).
-	def getValue(self, setting):
-		value = self._settings[setting].value
-		return value
+	def __getitem__(self, setting):
+		return self._settings[setting].value
