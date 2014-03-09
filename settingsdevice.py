@@ -7,7 +7,7 @@ import dbus
 import logging
 
 # Local imports
-from busitem import BusItem
+from vedbus import VeDbusItemImport
 
 ## Indexes for the setting dictonary.
 PATH = 0
@@ -41,8 +41,8 @@ class SettingsDevice(object):
 
 		# Add the items.
 		for setting, options in self._supportedSettings.items():
-			busitem = BusItem(self._bus, self._dbus_name, options[PATH])
-			if busitem.valid:
+			busitem = VeDbusItemImport(self._bus, self._dbus_name, options[PATH], self.handleChangedSetting)
+			if busitem.exists:
 				logging.debug("Setting %s found" % options[PATH])
 			else:
 				logging.info("Setting %s does not exist yet, adding it" % options[PATH])
@@ -57,17 +57,14 @@ class SettingsDevice(object):
 				else:
 					itemType = 's'
 				
-				# Call the dbus interface AddSetting
-				BusItem(self._bus, self._dbus_name, '/Settings')._object.AddSetting('', path, value, itemType, options[MINIMUM], options[MAXIMUM])
+				# Add the setting
+				# TODO, make an object that inherits VeDbusItemImport, and complete the D-Bus settingsitem interface
+				VeDbusItemImport(self._bus, self._dbus_name, '/Settings')._object.AddSetting('', path, value, itemType, options[MINIMUM], options[MAXIMUM])
 
-				busitem = BusItem(self._bus, self._dbus_name, options[PATH])
+				busitem = VeDbusItemImport(self._bus, self._dbus_name, options[PATH], self.handleChangedSetting)
 			
-				if not busitem.valid:
-					raise "error, still not valid after trying to add the setting. Something is wrong. Exit."
-
-			busitem.SetEventCallback(self.handleChangedSetting)
 			self._settings[setting] = busitem
-			self._values[setting] = busitem.value
+			self._values[setting] = busitem.GetValue()
 
 		logging.debug("===== Settings device init finished =====")
 
@@ -91,10 +88,12 @@ class SettingsDevice(object):
 
 		self._eventCallback(setting, oldvalue, changes['Value'])
 
-	## Returns the dbus-service-name which represents the Victron-Settings-device.
-	def __str__(self):
-		return "SettingsDevice = %s" % self._dbus_name
-		
 	## Return the value of the specified setting (= dbus-object-path).
 	def __getitem__(self, setting):
-		return self._settings[setting].value
+		return self._settings[setting].GetValue()
+
+	def __setitem__(self, setting, newvalue):
+		result = self._settings[setting].SetValue(newvalue)
+		if result != 0:
+			# Trying to make some false change to our own settings? How dumb!
+			assert False
