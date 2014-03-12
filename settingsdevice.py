@@ -39,6 +39,9 @@ class SettingsDevice(object):
 		self._values = {} # stored the values, used to pass the old value along on a setting change
 		self._settings = {}
 
+		if 'com.victronenergy.settings' not in self._bus.list_names():
+			raise Exception("The settings service com.victronenergy.settings does not exist!")
+
 		# Add the items.
 		for setting, options in self._supportedSettings.items():
 			busitem = VeDbusItemImport(self._bus, self._dbus_name, options[PATH], self.handleChangedSetting)
