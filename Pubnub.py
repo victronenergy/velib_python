@@ -1,4 +1,4 @@
-## www.pubnub.com - PubNub Real-time push service in the cloud.
+## www.pubnub.com - PubNub Real-time push service in the cloud. 
 # coding=utf8
 
 ## PubNub Real-time Push APIs and Notifications Framework
@@ -10,10 +10,9 @@
 ## -----------------------------------
 
 
-#from Crypto.Cipher import AES
-#from Crypto.Hash import MD5
-from base64 import encodestring, decodestring
-from multiprocessing import Pool
+from Crypto.Cipher import AES
+from Crypto.Hash import MD5
+from base64 import encodestring, decodestring 
 import hashlib
 import hmac
 
@@ -100,7 +99,7 @@ except ImportError: import simplejson as json
 import time
 import hashlib
 import urllib2
-import uuid
+import uuid 
 
 class PubnubBase(object):
     def __init__(
@@ -179,7 +178,7 @@ class PubnubBase(object):
         return message
 
 
-    def publish(self, args, blocking=True):
+    def publish( self, args, blocking = True ) :
         """
         #**
         #* Publish
@@ -211,7 +210,7 @@ class PubnubBase(object):
         if args.has_key('callback') :
             callback = args['callback']
         else :
-            callback = None
+            callback = None 
 
         #message = json.dumps(args['message'], separators=(',',':'))
         message = self.encrypt(args['message'])
@@ -248,7 +247,7 @@ class PubnubBase(object):
 
         pubnub.presence({
             'channel'  : 'hello_world',
-            'callback' : receive
+            'callback' : receive 
         })
         """
 
@@ -375,13 +374,13 @@ class PubnubBase(object):
         ## Capture User Input
         channel = str(args['channel'])
 
-        params = dict()
-        count = 100
+        params = dict() 
+        count = 100    
         
         if args.has_key('count'):
             count = int(args['count'])
 
-        params['count'] = str(count)
+        params['count'] = str(count)    
         
         if args.has_key('reverse'):
             params['reverse'] = str(args['reverse']).lower()
@@ -401,7 +400,7 @@ class PubnubBase(object):
         if args.has_key('callback') :
             callback = args['callback']
         else :
-            callback = None
+            callback = None 
 
         ## Get History
         return self._request({ 'urlcomponents' : [
@@ -432,7 +431,7 @@ class PubnubBase(object):
         if args and args.has_key('callback') :
             callback = args['callback']
         else :
-            callback = None
+            callback = None 
         time = self._request({'urlcomponents' : [
             'time',
             '0'
@@ -497,7 +496,7 @@ class PubnubCore(PubnubBase):
             ssl_on=ssl_on,
             origin=origin,
             UUID=uuid
-        )
+        )        
 
         self.subscriptions = {}
         self.timetoken     = 0
@@ -525,7 +524,7 @@ class PubnubCore(PubnubBase):
 
         pubnub.subscribe({
             'channel'  : 'hello_world',
-            'callback' : receive
+            'callback' : receive 
         })
 
         """
@@ -577,10 +576,7 @@ class PubnubCore(PubnubBase):
         return True
 
 
-def _pubnub_request_thread(request, url, callback=None):
-    ## Build URL
-
-    ## Send Request Expecting JSONP Response
+def _pubnub_request_instance(request, url, callback=None):
     try:
         try: usock = urllib2.urlopen( url, None, 310 )
         except TypeError: usock = urllib2.urlopen( url, None )
@@ -590,7 +586,11 @@ def _pubnub_request_thread(request, url, callback=None):
     except:
         return None
 
-    return resp_json
+    if (callback):
+        callback(resp_json)
+    else:
+        return resp_json
+
 
 class Pubnub(PubnubCore):
     def __init__(
@@ -601,7 +601,8 @@ class Pubnub(PubnubCore):
         cipher_key = False,
         ssl_on = False,
         origin = 'pubsub.pubnub.com',
-        pres_uuid = None
+        pres_uuid = None,
+        workers = 10
     ) :
         super(Pubnub, self).__init__(
             publish_key = publish_key,
@@ -611,18 +612,36 @@ class Pubnub(PubnubCore):
             ssl_on = ssl_on,
             origin = origin,
             uuid = pres_uuid
-        )
-        self.pool = Pool(processes=10)  # TODO: Determine right nr. of threads.
+        )        
+        self._number_of_workers = workers
+        self.pool = None
 
-    def _request(self, request, callback=None, blocking=True):
+    def has_pool(self):
+        if self.pool == 'error':
+            return False
+        if self.pool is not None:
+            # Already instanciated
+            return True
+        # Making new pool
+        try:
+            from multiprocessing import Pool
+        except ImportError:
+            self.pool = 'error'
+            return False
+        self.pool = Pool(processes=self._number_of_workers)
+        return True
+
+    def _request( self, request, callback = None, blocking = True ) :
         # If `blocking` is False it will return immediately without data.
         # If `blocking` is True it will return the JSON data from the server
 
+        ## Build URL
         url = self.getUrl(request)
-        args = [request, url]
-        if callback:
-            task = self.pool.apply_async(_pubnub_request_thread, args, {}, callback)
+
+        ## Send Request Expecting JSONP Response
+        args = [request, url, callback]
+
+        if blocking == False and self.has_pool():
+            self.pool.apply_async(_pubnub_request_instance, args)
         else:
-            task = self.pool.apply_async(_pubnub_request_thread, args)
-        if blocking:
-            return task.get()
+            return _pubnub_request_instance(*args)
