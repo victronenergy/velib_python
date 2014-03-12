@@ -186,6 +186,7 @@ class PubnubBase(object):
         #* Send a message to a channel.
         #*
         #* @param array args with channel and message.
+        #* @param bool blocking If False the call will return directly with no data
         #* @return array success information.
         #**
 
@@ -641,7 +642,7 @@ class Pubnub(PubnubCore):
         ## Send Request Expecting JSONP Response
         args = [request, url, callback]
 
-        if blocking == False and self.has_pool():
+        if blocking is False and self.has_pool():
             self.pool.apply_async(_pubnub_request_instance, args)
         else:
             return _pubnub_request_instance(*args)
