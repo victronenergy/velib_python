@@ -22,14 +22,16 @@ import platform
 #	tests_and_examples. And see 'if type(v) == dbus.Byte:' on line 102. Perhaps
 #	something similar should also be done in VeDbusBusItemExport?
 # 2 Shouldn't VeDbusBusItemExport inherit dbus.service.Object?
-# 3	do we want VeDbusItemImport to keep a local copy of the value, so when
-#	the python code needs it, it doesn need to go on the dbus to get it?
-#	when we do this, also the subscribing to the change signal needs to change,
-#	because weĺl need to subscribe always, not only when an eventcallback is
-#	given.
 # 6 Consider having a global that specifies the value of invalid. And decide
 #   which one is right, see todos in the code.
-#
+# 7 Make hard rules for services exporting data to the D-Bus, in order to make tracking
+#   changes possible. Does everybody first invalidate its data before leaving the bus?
+#   And what about before taking one object away from the bus, instead of taking the
+#   whole service offline?
+#   They should! And after taking one value away, do we need to know that someone left
+#   the bus? Or we just keep that value in invalidated for ever? Result is that we can't
+#   see the difference anymore between an invalidated value and a value that was first on
+#   the bus and later not anymore.
 # 9 there are probably more todos in the code below.
 
 # Some thoughts with regards to the data types:
@@ -119,12 +121,24 @@ class VeDbusItemImport(object):
 		self._match = None
 		self.eventCallback = eventCallback
 
+		# store the current value in _cachedvalue. When it doesnt exists set _cachedvalue to None.
+		self._cachedvalue = self._object.GetValue() if self.exists else None
+
 	## delete(self)
 	def __del__(self):
 		if self._match:
 			# remove the signal match from the dbus connection.
 			self._match.remove()
 			del(self._match)
+
+	## Do the conversions that are necessary when getting something from the D-Bus.
+	def _fixtypes(self, value):
+		# For some reason, str(dbus.Byte(84)) == 'T'. Bytes on the dbus are not meant to be a char.
+		# so, fix that.
+		if type(value) == dbus.Byte:
+			value = int(value)
+
+		return value
 
 	## Returns the path as a string, for example '/AC/L1/V'
 	@property
@@ -139,21 +153,18 @@ class VeDbusItemImport(object):
 	## Returns the value of the dbus-item.
 	# the type will be a dbus variant, for example dbus.Int32(0, variant_level=1)
 	# this is not a property to keep the name consistant with the com.victronenergy.busitem interface
+	# returns None when the property doesn't exist.
 	def GetValue(self):
-		v = self._object.GetValue()
-
-		# For some reason, str(dbus.Byte(84)) == 'T'. And bytes on the dbus are not meant to be characters
-		# so, fix that.
-		if type(v) == dbus.Byte:
-			v = int(self._object.GetValue())
-
-		return v
+		return self._fixtypes(self._cachedvalue) if self._cachedvalue is not None else None
 
 	## Writes a new value to the dbus-item
 	def SetValue(self, newvalue):
 		r = self._object.SetValue(newvalue)
-		# TODO check if it was accepted (r == 0), and if it is, update our local copy (at the
-		# time this local copy is finally implemented).
+
+		# instead of just saving the value, go to the dbus and get it. So we have the right type etc.
+		if r == 0:
+			self._cachedvalue = self._object.GetValue()
+
 		return r
 
 	## Returns False if the value is invalid. Otherwise returns True
@@ -207,11 +218,11 @@ class VeDbusItemImport(object):
 		self._eventCallback = eventCallback
 
 	## Is called when the value of the imported bus-item changes.
-	# calls the eventCallback, if set.
-	# @param changes the changed properties.
+	# Stores the new value in our local cache, and calls the eventCallback, if set.
 	def _properties_changed_handler(self, changes):
 		if "Value" in changes:
-			self._value = changes["Value"]
+			self._cachedvalue = changes['Value']
+			changes['Value'] = self._fixtypes(changes['Value'])
 			if self._eventCallback:
 				self._eventCallback(self._serviceName, self._path, changes)
 
