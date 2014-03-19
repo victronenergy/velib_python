@@ -1,12 +1,3 @@
-# This file is principally based on the PubNum API Python code, as found at
-# https://github.com/pubnub/python/tree/master/python
-
-# Additional modifications were done to add the keyword `blocking` to the
-# publish method to allow non-blocking calls. Until this change is merged into
-# upstream it can be found at https://github.com/quinox/python/tree/master/python
-
-
-
 # Dirty copy of Pubnub.
 
 # This file is principally based on the PubNum API Python code, as found at
