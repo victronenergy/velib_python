@@ -14,7 +14,7 @@ import platform
 # Code for VeDbusItemImport is copied from busitem.py and thereafter modified.
 # All projects that used busitem.py need to migrate to this package. And some
 # projects used to define there own equivalent of VeDbusItemExport. Better to
-# use that.
+# use VeDbusItemExport, or even better the VeDbusService class that does it all for you.
 
 # TODOS (last update mva 2014-3-1)
 # 1 check for datatypes, it works now, but not sure if all is compliant with
@@ -55,6 +55,7 @@ import platform
 
 #   The signature of a variant is 'v'.
 
+VEDBUS_INVALID = dbus.Array([])
 
 # Export ourselves as a D-Bus service.
 class VeDbusService(object):
@@ -97,9 +98,8 @@ class VeDbusService(object):
 	def get_value(self, path):
 		return self._dbusobjects[path].GetValue()
 
-	@property
 	def is_valid(self, path):
-		return self._dbusobjects[path].isValid()
+		return self._dbusobjects[path].local_is_valid()
 
 	def set_value(self, path, newvalue, isvalid=True):
 		self._dbusobjects[path].local_set_value(newvalue, isvalid)
@@ -246,7 +246,7 @@ class VeDbusItemExport(dbus.service.Object):
 		dbus.service.Object.__init__(self, bus, objectPath)
 		self._onchangecallback = onchangecallback
 		self._gettextcallback = gettextcallback
-		self._value = value
+		self._value = value if isValid else dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
 		self._description = description
 		self._writeable = writeable
 
