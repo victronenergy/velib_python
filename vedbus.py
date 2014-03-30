@@ -16,14 +16,12 @@ import platform
 # projects used to define there own equivalent of VeDbusItemExport. Better to
 # use VeDbusItemExport, or even better the VeDbusService class that does it all for you.
 
-# TODOS (last update mva 2014-3-1)
+# TODOS
 # 1 check for datatypes, it works now, but not sure if all is compliant with
 #	com.victronenergy.BusItem interface definition. See also the files in
 #	tests_and_examples. And see 'if type(v) == dbus.Byte:' on line 102. Perhaps
 #	something similar should also be done in VeDbusBusItemExport?
 # 2 Shouldn't VeDbusBusItemExport inherit dbus.service.Object?
-# 6 Consider having a global that specifies the value of invalid. And decide
-#   which one is right, see todos in the code.
 # 7 Make hard rules for services exporting data to the D-Bus, in order to make tracking
 #   changes possible. Does everybody first invalidate its data before leaving the bus?
 #   And what about before taking one object away from the bus, instead of taking the
@@ -172,9 +170,7 @@ class VeDbusItemImport(object):
 	# values are represented as an empty array.
 	@property
 	def isValid(self):
-		# TODO: test is dbus.Array([]) is ok. Or if should be
-		# dbus.Array([], signature=dbus.Signature('i'), variant_level=1) instead.
-		return self.GetValue() != dbus.Array([])
+		return self.GetValue() != VEDBUS_INVALID
 
 	## Returns true of object path exists, and false if it doesn't
 	@property
@@ -246,26 +242,21 @@ class VeDbusItemExport(dbus.service.Object):
 		dbus.service.Object.__init__(self, bus, objectPath)
 		self._onchangecallback = onchangecallback
 		self._gettextcallback = gettextcallback
-		self._value = value if isValid else dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
+		self._value = value if isValid else VEDBUS_INVALID
 		self._description = description
 		self._writeable = writeable
 
 	## Returns true when the local stored value is valid, and if not, it will return false
 	def local_is_valid(self):
-		# TODO: why is this signature and variant_level specified here? I have seen it without
-		# also: IsValid in the other class
-		return self._value != dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
+		return self._value != VEDBUS_INVALID
 
 	## Sets the value. And in case the value is different from what it was, a signal
 	# will be emitted to the dbus. This function is to be used in the python code that
 	# is using this class to export values to the dbus
 	def local_set_value(self, value, isValid=True):
 		# when invalid, set value to the definition of invalid
-		# TODO: why is this signature and variant_level specified here? I have seen it without
-		# also: IsValid in the other class
-
 		if not isValid:
-			value = dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
+			value = VEDBUS_INVALID
 
 		self._value = value
 
