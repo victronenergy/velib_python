@@ -68,6 +68,9 @@ class VeDbusService(object):
 		# For a CCGX, connect to the SystemBus
 		self._dbusconn = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
 
+		# make the dbus connection available to outside, could make this a true property instead, but ach..
+		self.dbusconn = self._dbusconn
+
 		# Register ourserves on the dbus
 		self._dbusname = dbus.service.BusName(servicename, self._dbusconn)
 
