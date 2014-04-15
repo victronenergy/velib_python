@@ -10,10 +10,8 @@
 # - after startup, it continues to monitor the dbus:
 #		1) when services are added we do the same check on that
 #		2) when services are removed, we remove any items that we had that referred to that service
-#		3) if an existing services adds or removes paths we update ourselves as well (how to do this!?!)
-#          answer on how to do this: realize that we are not really adding the object. Making a
-#          VeDbusItemImport for a non-existing objectpath is no problem. Just don't call GetValue().
-#          Perhaps we'll add PathExists() true/false to the properties of VeDbusItemImport.
+#		3) if an existing services adds paths we update ourselves as well: on init, we make a
+#          VeDbusItemImport for a non-, or not yet existing objectpaths as well1
 #
 # Code is used by the vrmLogger, and also the pubsub code. Both are other modules in the dbus_vrm repo.
 
@@ -41,7 +39,7 @@ class DbusMonitor(object):
 	## Constructor
 	# TODO: Remove mountEventCallback, VrmHttpFlash should set up a listener
 	def __init__(self, valueChangedCallback=None, deviceAddedCallback=None, deviceRemovedCallback=None, mountEventCallback=None):
-		# The callback that we call when something has changed.
+		# valueChangedCallback is the callback that we call when something has changed.
 		# parameters that will be passed when this function is called are:
 		#	dbus-servicename, for example com.victronenergy.dbus.ttyO1
 		#	dbus-path, for example /Ac/ActiveIn/L1/V
@@ -144,16 +142,16 @@ class DbusMonitor(object):
 
 				self.items[serviceName]['paths'] = {}
 
-				# settings doesn't have a deviceInstance
-				# gps doesn't have a deviceInstance, fix it at 0.
-				# kwhcounters is fixed at deviceInstance 0.
-				# And for vebus.ttyO1, this is workaround, since VRM Portal expects the main vebus devices at
+				# for vebus.ttyO1, this is workaround, since VRM Portal expects the main vebus devices at
 				# instance 0. Not sure how to fix this yet.
-				if serviceName in ['com.victronenergy.vebus.ttyO1', 'com.victronenergy.settings', 'com.victronenergy.gps',
-					'com.victronenergy.kwhcounters']:
+				if serviceName in ['com.victronenergy.vebus.ttyO1']:
 					self.items[serviceName]['deviceInstance'] = 0
 				else:
-					self.items[serviceName]['deviceInstance'] = VeDbusItemImport(self.dbusConn, serviceName, '/DeviceInstance').GetValue()
+					self.items[serviceName]['deviceInstance'] = VeDbusItemImport(self.dbusConn, serviceName, '/DeviceInstance').get_value()
+
+					# Some services do not have an instance, such as gps and settings. Set instance to 0 for those.
+					if self.items[serviceName]['deviceInstance'] is None:
+						self.items[serviceName]['deviceInstance'] = 0
 
 				logging.info("       %s has device instance %s" % (serviceName, self.items[serviceName]['deviceInstance']))
 
@@ -205,14 +203,14 @@ class DbusMonitor(object):
 		result = {}
 
 		# iterate through the list of types
-		for t in types:
+		for type in types:
 
 			# iterate through the VeDbusItemImport objects and get the data
 			serviceDict = self.items[serviceName]
-			for d in serviceDict[t]:
-				if d.isValid and d.GetValue() is not None:
+			for d in serviceDict[type]:
+				if d.get_value() is not None:
 					code = serviceDict['paths'][d.path]['vrmDict']['code']
-					result[code + "[" + str(deviceInstance) + "]"] = Conversions.convert(code, d.GetValue())
+					result[code + "[" + str(deviceInstance) + "]"] = Conversions.convert(code, d.get_value())
 
 		return result
 

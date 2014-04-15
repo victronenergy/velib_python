@@ -53,7 +53,7 @@ import platform
 
 #   The signature of a variant is 'v'.
 
-VEDBUS_INVALID = dbus.Array([])
+VEDBUS_INVALID =dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
 
 # Export ourselves as a D-Bus service.
 class VeDbusService(object):
@@ -66,7 +66,7 @@ class VeDbusService(object):
 
 		# For a PC, connect to the SessionBus
 		# For a CCGX, connect to the SystemBus
-		self._dbusconn = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
+		self._dbusconn = dbus.SystemBus(True) if (platform.machine() == 'armv7l') else dbus.SessionBus(True)
 
 		# make the dbus connection available to outside, could make this a true property instead, but ach..
 		self.dbusconn = self._dbusconn
@@ -76,16 +76,22 @@ class VeDbusService(object):
 
 		logging.info("registered ourselves on D-Bus as %s" % servicename)
 
+	# Invalidate all values before going off the dbus
+	def __del__(self):
+		for sensor in self._dbusobjects.values():
+			sensor.local_set_value(None)
+
 	# @param callbackonchange	function that will be called when this value is changed. First parameter will
 	#							be the path of the object, second the new value. This callback should return
 	#							True to accept the change, False to reject it.
-	def add_path(self, path, value, isvalid=True, description="", writeable=False,
+	def add_path(self, path, value, description="", writeable=False,
 					onchangecallback=None, gettextcallback=None):
+
 		if onchangecallback is not None:
 			self._onchangecallbacks[path] = onchangecallback
 
 		self._dbusobjects[path] = VeDbusItemExport(
-				self._dbusconn, path, value, isvalid, description, writeable,
+				self._dbusconn, path, value, description, writeable,
 				self._value_changed, gettextcallback)
 
 	# Callback function that is called from the VeDbusItemExport objects when a value changes. This function
@@ -96,14 +102,21 @@ class VeDbusService(object):
 
 		return self._onchangecallbacks[path](path, newvalue)
 
-	def get_value(self, path):
-		return self._dbusobjects[path].GetValue()
+	def __getitem__(self, path):
+		return self._dbusobjects[path].local_get_value()
 
-	def is_valid(self, path):
-		return self._dbusobjects[path].local_is_valid()
+	def __setitem__(self, path, newvalue):
+		self._dbusobjects[path].local_set_value(newvalue)
 
-	def set_value(self, path, newvalue, isvalid=True):
-		self._dbusobjects[path].local_set_value(newvalue, isvalid)
+	def __delitem__(self, path):
+		# Set value to invalid first, will cause signal change to be emitted when value was not None
+		self[path] = None
+
+		# Todo, check that this is the right command to delete an item.
+		del self[path]
+
+	def __contains__(self, path):
+		return path in self._dbusobjects
 
 
 class VeDbusItemImport(object):
@@ -122,8 +135,11 @@ class VeDbusItemImport(object):
 		self._match = None
 		self.eventCallback = eventCallback
 
-		# store the current value in _cachedvalue. When it doesnt exists set _cachedvalue to None.
-		self._cachedvalue = self._object.GetValue() if self.exists else None
+		# store the current value in _cachedvalue. When it doesnt exists set _cachedvalue to
+		# None, same as when a value is invalid
+		self._cachedvalue = None
+		if self.exists:
+			self._refreshcachedvalue()
 
 	## delete(self)
 	def __del__(self):
@@ -139,7 +155,13 @@ class VeDbusItemImport(object):
 		if type(value) == dbus.Byte:
 			value = int(value)
 
+		if value == VEDBUS_INVALID:
+			value = None
+
 		return value
+
+	def _refreshcachedvalue(self):
+		self._cachedvalue = self._fixtypes(self._object.GetValue())
 
 	## Returns the path as a string, for example '/AC/L1/V'
 	@property
@@ -154,26 +176,28 @@ class VeDbusItemImport(object):
 	## Returns the value of the dbus-item.
 	# the type will be a dbus variant, for example dbus.Int32(0, variant_level=1)
 	# this is not a property to keep the name consistant with the com.victronenergy.busitem interface
-	# returns None when the property doesn't exist.
-	def GetValue(self):
-		return self._fixtypes(self._cachedvalue) if self._cachedvalue is not None else None
+	# returns None when the property is invalid
+	def get_value(self):
+		return self._cachedvalue
 
 	## Writes a new value to the dbus-item
-	def SetValue(self, newvalue):
-		r = self._object.SetValue(newvalue)
+	def set_value(self, newvalue):
+		r = self._object.SetValue(newvalue if newvalue is not None else VEDBUS_INVALID)
 
 		# instead of just saving the value, go to the dbus and get it. So we have the right type etc.
 		if r == 0:
-			self._cachedvalue = self._object.GetValue()
+			self._refreshcachedvalue()
 
 		return r
 
-	## Returns False if the value is invalid. Otherwise returns True
-	# In the interface com.victronenergy.BusItem, the definition is that invalid
-	# values are represented as an empty array.
-	@property
-	def isValid(self):
-		return self.GetValue() != VEDBUS_INVALID
+	## Returns the text representation of the value.
+	# For example when the value is an enum/int GetText might return the string
+	# belonging to that enum value. Another example, for a voltage, GetValue
+	# would return a float, 12.0Volt, and GetText could return 12 VDC.
+	#
+	# Note that this depends on how the dbus-producer has implemented this.
+	def get_text(self):
+		return self._object.GetText()
 
 	## Returns true of object path exists, and false if it doesn't
 	@property
@@ -187,15 +211,6 @@ class VeDbusItemImport(object):
 			pass
 
 		return r
-
-	## Returns the text representation of the value.
-	# For example when the value is an enum/int GetText might return the string
-	# belonging to that enum value. Another example, for a voltage, GetValue
-	# would return a float, 12.0Volt, and GetText could return 12 VDC.
-	#
-	# Note that this depends on how the dbus-producer has implemented this.
-	def GetText(self):
-		return self._object.GetText()
 
 	## callback for the trigger-event.
 	# @param eventCallback the event-callback-function.
@@ -220,8 +235,8 @@ class VeDbusItemImport(object):
 	# Stores the new value in our local cache, and calls the eventCallback, if set.
 	def _properties_changed_handler(self, changes):
 		if "Value" in changes:
-			self._cachedvalue = changes['Value']
 			changes['Value'] = self._fixtypes(changes['Value'])
+			self._cachedvalue = changes['Value']
 			if self._eventCallback:
 				self._eventCallback(self._serviceName, self._path, changes)
 
@@ -233,40 +248,38 @@ class VeDbusItemExport(dbus.service.Object):
 	# Creates the dbus-object under the given dbus-service-name.
 	# @param bus		  The dbus object.
 	# @param objectPath	  The dbus-object-path.
-	# @param value		  Value to initialize ourselves with, defaults to 0
-	# @param isValid	  Should we initialize with a valid value, defaults to False
+	# @param value		  Value to initialize ourselves with, defaults to None which means Invalid
 	# @param description  String containing a description. Can be called over the dbus with GetDescription()
 	# @param writeable	  what would this do!? :).
 	# @param callback	  Function that will be called when someone else changes the value of this VeBusItem
 	#                     over the dbus. First parameter passed to callback will be our path, second the new
 	#					  value. This callback should return True to accept the change, False to reject it.
-	def __init__(self, bus, objectPath, value=0, isValid=True, description=None, writeable=False,
+	def __init__(self, bus, objectPath, value=None, description=None, writeable=False,
 					onchangecallback=None, gettextcallback=None):
 		dbus.service.Object.__init__(self, bus, objectPath)
 		self._onchangecallback = onchangecallback
 		self._gettextcallback = gettextcallback
-		self._value = value if isValid else VEDBUS_INVALID
+		self._value = value
 		self._description = description
 		self._writeable = writeable
 
-	## Returns true when the local stored value is valid, and if not, it will return false
-	def local_is_valid(self):
-		return self._value != VEDBUS_INVALID
-
 	## Sets the value. And in case the value is different from what it was, a signal
 	# will be emitted to the dbus. This function is to be used in the python code that
-	# is using this class to export values to the dbus
-	def local_set_value(self, value, isValid=True):
-		# when invalid, set value to the definition of invalid
-		if not isValid:
-			value = VEDBUS_INVALID
+	# is using this class to export values to the dbus.
+	# set value to None to indicate that it is Invalid
+	def local_set_value(self, newvalue):
+		if self._value == newvalue:
+			return
 
-		self._value = value
+		self._value = newvalue
 
 		changes = {}
-		changes['Value'] = value
+		changes['Value'] = newvalue if newvalue is not None else VEDBUS_INVALID
 		changes['Text'] = self.GetText()
 		self.PropertiesChanged(changes)
+
+	def local_get_value(self):
+		return self._value
 
 	# ==== ALL FUNCTIONS BELOW THIS LINE WILL BE CALLED BY OTHER PROCESSES OVER THE DBUS ====
 
@@ -276,21 +289,24 @@ class VeDbusItemExport(dbus.service.Object):
 	# @param value The new value.
 	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
 	@dbus.service.method('com.victronenergy.BusItem', in_signature='v', out_signature='i')
-	def SetValue(self, value):
+	def SetValue(self, newvalue):
 		if not self._writeable:
 			return 1  # NOT OK
 
-		if value == self._value:
+		if newvalue is VEDBUS_INVALID:
+			newvalue = None
+
+		if newvalue == self._value:
 			return 0  # OK
 
 		# call the callback given to us, and check if new value is OK.
 		if (self._onchangecallback is None or
-				(self._onchangecallback is not None and self._onchangecallback(self.__dbus_object_path__, value))):
+				(self._onchangecallback is not None and self._onchangecallback(self.__dbus_object_path__, newvalue))):
 
-			self.local_set_value(value)
+			self.local_set_value(newvalue)
 			return 0  # OK
 
-		return 1  # NOT OK
+		return 2  # NOT OK
 
 	## Dbus exported method GetDescription
 	#
@@ -307,15 +323,19 @@ class VeDbusItemExport(dbus.service.Object):
 	# @return the value when valid, and otherwise an empty array
 	@dbus.service.method('com.victronenergy.BusItem', out_signature='v')
 	def GetValue(self):
-		return self._value
+		return self._value if self._value is not None else VEDBUS_INVALID
 
 	## Dbus exported method GetText
 	# Returns the value as string of the dbus-object-path.
 	# @return text A text-value. '---' when local value is invalid
 	@dbus.service.method('com.victronenergy.BusItem', out_signature='s')
 	def GetText(self):
-		if not self.local_is_valid():
+		if self._value is None:
 			return '---'
+
+		# See VeDbusItemImport._fixtypes for why we int() an dbus.Byte
+		if self._gettextcallback is None and type(self._value) == dbus.Byte:
+			return str(int(self._value))
 
 		if self._gettextcallback is None:
 			return str(self._value)
