@@ -1,7 +1,5 @@
 ## IMPORTANT NOTE - MVA 2015-2-5 
-# This file is probably deprecated. The new idea is to remove all tracing from 
-# the python code, and use something native to python. Also saving to disk isn't
-# necessary, much better to write to stdout and stderr instead.
+# This file is  deprecated. Use the standard logging package of Python instead
 
 ## @package tracing
 # The tracing module for debug-purpose.

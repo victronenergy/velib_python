@@ -67,7 +67,7 @@ class SettingsDevice(object):
 				busitem = VeDbusItemImport(self._bus, self._dbus_name, options[PATH], self.handleChangedSetting)
 			
 			self._settings[setting] = busitem
-			self._values[setting] = busitem.GetValue()
+			self._values[setting] = busitem.get_value()
 
 		logging.debug("===== Settings device init finished =====")
 
@@ -93,10 +93,10 @@ class SettingsDevice(object):
 
 	## Return the value of the specified setting (= dbus-object-path).
 	def __getitem__(self, setting):
-		return self._settings[setting].GetValue()
+		return self._settings[setting].get_value()
 
 	def __setitem__(self, setting, newvalue):
-		result = self._settings[setting].SetValue(newvalue)
+		result = self._settings[setting].set_value(newvalue)
 		if result != 0:
 			# Trying to make some false change to our own settings? How dumb!
 			assert False
