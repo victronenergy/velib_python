@@ -91,7 +91,6 @@ class SettingsDevice(object):
 
 		self._eventCallback(setting, oldvalue, changes['Value'])
 
-	## Return the value of the specified setting (= dbus-object-path).
 	def __getitem__(self, setting):
 		return self._settings[setting].get_value()
 
