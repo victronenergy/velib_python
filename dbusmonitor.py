@@ -180,6 +180,30 @@ class DbusMonitor(object):
 			self.valueChangedCallback(serviceName, objectPath,
 				self.items[serviceName]['paths'][objectPath]['vrmDict'], changes, self.get_device_instance(serviceName))
 
+	# Gets the value for a certain servicename and path, return None when not exists or invalid
+	def get_value(self, serviceName, objectPath):
+		if serviceName not in self.items:
+			return None
+
+		if objectPath not in self.items[serviceName]['paths']:
+			return None
+
+		return self.items[serviceName]['paths'][objectPath]['dbusObject'].get_value()
+
+	# returns a dictionary, keys are the instances, values the servicenames
+	# optionally use the classfilter to get only a certain type of services, for
+	# example com.victronenergy.battery.
+	def get_service_list(self, classfilter=None):
+		r = {}
+		if classfilter is not None:
+			class_as_list = classfilter.split('.')[0:3]
+
+		for servicename in self.items.keys():
+			if classfilter is not None and servicename.split('.')[0:3] == class_as_list:
+				r[self.items[servicename]['deviceInstance']] = servicename
+
+		return r
+
 	def get_device_instance(self, serviceName):
 		return self.items[serviceName]['deviceInstance']
 
@@ -248,7 +272,6 @@ def main():
 
 	import datalist   # from the dbus_vrm repository
 	d = DbusMonitor(datalist.vrmTree, value_changed_on_dbus)
-
 
 	logging.info("==configchange values==")
 	logging.info(pprint.pformat(d.get_values(['configChange'])))
