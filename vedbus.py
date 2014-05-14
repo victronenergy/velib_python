@@ -94,6 +94,21 @@ class VeDbusService(object):
 				self._dbusconn, path, value, description, writeable,
 				self._value_changed, gettextcallback)
 
+	# Add the mandatory paths, as per victron dbus api doc
+	def add_mandatory_paths(self, processname, processversion, connection,
+			deviceinstance, productid, productname, firmwareversion, hardwareversion, connected):
+		self.add_path('/Management/ProcessName', processname)
+		self.add_path('/Management/ProcessVersion', processversion)
+		self.add_path('/Management/Connection', connection)
+
+		# Create rest of the mandatory objects
+		self.add_path('/DeviceInstance', deviceinstance)
+		self.add_path('/ProductId', productid)
+		self.add_path('/ProductName', productname)
+		self.add_path('/FirmwareVersion', firmwareversion)
+		self.add_path('/HardwareVersion', hardwareversion)
+		self.add_path('/Connected', connected)
+
 	# Callback function that is called from the VeDbusItemExport objects when a value changes. This function
 	# maps the change-request to the onchangecallback given to us for this specific path.
 	def _value_changed(self, path, newvalue):
