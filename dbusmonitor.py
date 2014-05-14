@@ -207,29 +207,28 @@ class DbusMonitor(object):
 	def get_device_instance(self, serviceName):
 		return self.items[serviceName]['deviceInstance']
 
-	# types is to be a list, containing the types you want (configChange, onIntervalAlways, etc)
-	# return a dictionary, keys are codes + instance. For example vvt[0]. And values are the value.
-	def get_values(self, types):
+	# categoryfiler is to be a list, containing the categories you want (configChange, onIntervalAlways, etc)
+	# returns a dictionary, keys are codes + instance, in VRM querystring format. For example vvt[0]. And
+	# values are the value.
+	def get_values(self, categoryfilter):
 
 		result = {}
 
 		# loop through the D-Bus service that we now
 		for serviceName in self.items.keys():
-			result.update(self.get_values_for_service(types, serviceName))
+			result.update(self.get_values_for_service(categoryfilter, serviceName))
 
 		return result
 
 	# same as above, but then for one service only
-	def get_values_for_service(self, types, serviceName):
-		deviceInstance = self.get_device_instance(serviceName)
+	def get_values_for_service(self, categoryfilter, servicename):
+		deviceInstance = self.get_device_instance(servicename)
 		result = {}
 
-		# iterate through the list of types
-		for type in types:
+		serviceDict = self.items[servicename]
+		for category in categoryfilter:
 
-			# iterate through the VeDbusItemImport objects and get the data
-			serviceDict = self.items[serviceName]
-			for d in serviceDict[type]:
+			for d in serviceDict[category]:
 				if d.get_value() is not None:
 					code = serviceDict['paths'][d.path]['vrmDict']['code']
 					result[code + "[" + str(deviceInstance) + "]"] = Conversions.convert(code, d.get_value())
