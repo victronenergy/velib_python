@@ -31,24 +31,22 @@ from vedbus import VeDbusItemExport, VeDbusItemImport
 from conversions import Conversions
 
 # Dictionary containing all devices and paths to look for
-from datalist import vrmTree
 
 items = {}
 
 class DbusMonitor(object):
 	## Constructor
 	# TODO: Remove mountEventCallback, VrmHttpFlash should set up a listener
-	def __init__(self, valueChangedCallback=None, deviceAddedCallback=None, deviceRemovedCallback=None, mountEventCallback=None):
+	def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
+					deviceRemovedCallback=None, mountEventCallback=None):
 		# valueChangedCallback is the callback that we call when something has changed.
-		# parameters that will be passed when this function is called are:
-		#	dbus-servicename, for example com.victronenergy.dbus.ttyO1
-		#	dbus-path, for example /Ac/ActiveIn/L1/V
-		#   the dict containing the properties from the vrmTree
-		#	the changes, a tuple with GetText() and GetValue()
+		# def value_changed_on_dbus(dbusServiceName, dbusPath, options, changes, deviceInstance):
+		# in which changes is a tuple with GetText() and GetValue()
 		self.valueChangedCallback = valueChangedCallback
 		self.deviceAddedCallback = deviceAddedCallback
 		self.deviceRemovedCallback = deviceRemovedCallback
 		self.mountEventCallback = mountEventCallback
+		self.dbusTree = dbusTree
 
 		# Dictionary containing all dbus items we monitor (VeDbusItemImport). It contains D-Bus servicenames,
 		# objectpaths, and the VEDbusItemImport objects and the details from the excelsheet:
@@ -121,7 +119,7 @@ class DbusMonitor(object):
 
 		newDeviceAdded = False
 
-		for s in vrmTree.keys():
+		for s in self.dbusTree.keys():
 			if serviceName.split('.')[0:3] == s.split('.')[0:3]:
 				logging.info("Found: %s matches %s, scanning and storing items" % (serviceName, s))
 				newDeviceAdded = True
@@ -155,7 +153,7 @@ class DbusMonitor(object):
 
 				logging.info("       %s has device instance %s" % (serviceName, self.items[serviceName]['deviceInstance']))
 
-				for path, options in vrmTree[s].items():
+				for path, options in self.dbusTree[s].items():
 					# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
 					# options will be a dictionary: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
 
@@ -248,7 +246,9 @@ def main():
 	# Have a mainloop, so we can send/receive asynchronous calls to and from dbus
 	DBusGMainLoop(set_as_default=True)
 
-	d = DbusMonitor(value_changed_on_dbus)
+	import datalist   # from the dbus_vrm repository
+	d = DbusMonitor(datalist.vrmTree, value_changed_on_dbus)
+
 
 	logging.info("==configchange values==")
 	logging.info(pprint.pformat(d.get_values(['configChange'])))
