@@ -1,11 +1,16 @@
 velib_python
 ============
-This is the general python library within Victron. Today it only contains code that is related to dbus and the Color
-Control GX. 
+This is the general python library within Victron. It contains code that is related to dbus and the Color
+Control GX. See http://www.victronenergy.com/panel-systems-remote-monitoring/colorcontrol/ for more
+infomation about that panel.
 
-Files  busitem.py, dbusitem.py and tracing.py are deprecated. See vedbus.py instead.
+Files  busitem.py, dbusitem.py and tracing.py are deprecated.
 
-vedbus.py is still being finished.
+The main files are vedbus.py and dbusmonitor.py.
+
+- Use VeDbusService to put your process on dbus and let other services interact with you.
+- Use VeDbusItemImport to read a single value from other processes the dbus, and monitor its signals.
+- Use DbusMonitor to monitor multiple values from other processes
 
 
 Code style
