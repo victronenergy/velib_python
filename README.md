@@ -6,12 +6,13 @@ infomation about that panel.
 
 Files  busitem.py, dbusitem.py and tracing.py are deprecated.
 
-The main files are vedbus.py and dbusmonitor.py.
+The main files are vedbus.py, dbusmonitor.py and settingsdevice.py.
 
 - Use VeDbusService to put your process on dbus and let other services interact with you.
 - Use VeDbusItemImport to read a single value from other processes the dbus, and monitor its signals.
 - Use DbusMonitor to monitor multiple values from other processes
-
+- Use SettingsDevice to store your settings in flash, via the com.victronenergy.settings dbus service. See
+https://github.com/victronenergy/localsettings for more info.
 
 Code style
 ==========
