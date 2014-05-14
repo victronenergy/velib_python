@@ -118,6 +118,9 @@ class DbusMonitor(object):
 
 		newDeviceAdded = False
 
+		# make it a normal string instead of dbus string
+		serviceName = str(serviceName)
+
 		for s in self.dbusTree.keys():
 			if serviceName.split('.')[0:3] == s.split('.')[0:3]:
 				logging.info("Found: %s matches %s, scanning and storing items" % (serviceName, s))
