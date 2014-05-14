@@ -149,6 +149,8 @@ class DbusMonitor(object):
 					# Some services do not have an instance, such as gps and settings. Set instance to 0 for those.
 					if self.items[serviceName]['deviceInstance'] is None:
 						self.items[serviceName]['deviceInstance'] = 0
+					else:
+						self.items[serviceName]['deviceInstance'] = int(self.items[serviceName]['deviceInstance'])
 
 				logging.info("       %s has device instance %s" % (serviceName, self.items[serviceName]['deviceInstance']))
 
