@@ -28,7 +28,6 @@ import pprint
 
 # our own packages
 from vedbus import VeDbusItemExport, VeDbusItemImport
-from conversions import Conversions
 
 # Dictionary containing all devices and paths to look for
 
@@ -232,6 +231,8 @@ class DbusMonitor(object):
 				if d.get_value() is not None:
 					code = serviceDict['paths'][d.path]['vrmDict']['code']
 					result[code + "[" + str(deviceInstance) + "]"] = Conversions.convert(code, d.get_value())
+					# TODO removed conversions to not make this code depending on Conversions.py in
+					# dbus_vrm. Need to make some fix for dbus_vrm later...
 
 		return result
 
