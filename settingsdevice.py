@@ -21,6 +21,9 @@ MAXIMUM = 3
 # source, such as the GUI, the program can pass an eventCallback that will be called
 # as soon as some setting is changed.
 #
+# The settings are stored in flash via the com.victronenergy.settings service on dbus.
+# See https://github.com/victronenergy/localsettings for more info.
+#
 # If there are settings in de supportSettings list which are not yet on the dbus, 
 # and therefore not yet in the xml file, they will be added through the dbus-addSetting
 # interface of com.victronenergy.settings.
