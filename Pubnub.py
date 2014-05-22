@@ -23,8 +23,8 @@
 ## -----------------------------------
 
 
-#from Crypto.Cipher import AES
-#from Crypto.Hash import MD5
+from Crypto.Cipher import AES
+from Crypto.Hash import MD5
 from base64 import encodestring, decodestring 
 import hashlib
 #import hmac
