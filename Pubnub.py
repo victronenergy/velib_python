@@ -638,9 +638,10 @@ class Pubnub(PubnubCore):
             return True
         # Making new pool
         try:
-            from multiprocessing import Pool
+            from multiprocessing.pool import ThreadPool as Pool
         except ImportError:
             self.pool = 'error'
+            print("ERROR: Could not import multiprocessing.pool in Pubnub.py")
             return False
         self.pool = Pool(processes=self._number_of_workers)
         return True
