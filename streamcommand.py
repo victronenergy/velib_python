@@ -27,7 +27,6 @@ class StreamCommand(object):
                 self.feedbacksender.send({"status": "could_not_start", "message":
                     "Error no %s, %s" % (e.errno, e.strerror)})
 
-                self.cnt = self.cnt + 1
                 self.process = None
                 return
 
