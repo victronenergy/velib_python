@@ -211,21 +211,22 @@ class DbusMonitor(object):
 	def get_device_instance(self, serviceName):
 		return self.items[serviceName]['deviceInstance']
 
-	# categoryfiler is to be a list, containing the categories you want (configChange, onIntervalAlways, etc)
-	# returns a dictionary, keys are codes + instance, in VRM querystring format. For example vvt[0]. And
+	# Parameter categoryfilter is to be a list, containing the categories you want (configChange,
+	# onIntervalAlways, etc).
+	# Returns a dictionary, keys are codes + instance, in VRM querystring format. For example vvt[0]. And
 	# values are the value.
-	def get_values(self, categoryfilter):
+	def get_values(self, categoryfilter, converter=None):
 
 		result = {}
 
 		# loop through the D-Bus service that we now
 		for serviceName in self.items.keys():
-			result.update(self.get_values_for_service(categoryfilter, serviceName))
+			result.update(self.get_values_for_service(categoryfilter, serviceName, converter))
 
 		return result
 
-	# same as above, but then for one service only
-	def get_values_for_service(self, categoryfilter, servicename):
+	# same as get_values above, but then for one service only
+	def get_values_for_service(self, categoryfilter, servicename, converter=None):
 		deviceInstance = self.get_device_instance(servicename)
 		result = {}
 
@@ -235,9 +236,10 @@ class DbusMonitor(object):
 			for d in serviceDict[category]:
 				if d.get_value() is not None:
 					code = serviceDict['paths'][d.path]['vrmDict']['code']
-					result[code + "[" + str(deviceInstance) + "]"] = Conversions.convert(code, d.get_value())
-					# TODO removed conversions to not make this code depending on Conversions.py in
-					# dbus_vrm. Need to make some fix for dbus_vrm later...
+					if converter:
+						result[code + "[" + str(deviceInstance) + "]"] = converter.convert(code, d.get_value())
+					else:
+						result[code + "[" + str(deviceInstance) + "]"] = d.get_value()
 
 		return result
 
