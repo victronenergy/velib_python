@@ -352,6 +352,9 @@ class VeDbusItemExport(dbus.service.Object):
 		if self._gettextcallback is None and type(self._value) == dbus.Byte:
 			return str(int(self._value))
 
+		if self._gettextcallback is None and self.__dbus_object_path__ == '/ProductId':
+			return "0x%X" % self._value
+
 		if self._gettextcallback is None:
 			return str(self._value)
 
