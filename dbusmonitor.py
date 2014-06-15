@@ -194,7 +194,7 @@ class DbusMonitor(object):
 
 		return self.items[serviceName]['paths'][objectPath]['dbusObject'].get_value()
 
-	# returns a dictionary, keys are the instances, values the servicenames
+	# returns a dictionary, keys are the servicenames, value the instances
 	# optionally use the classfilter to get only a certain type of services, for
 	# example com.victronenergy.battery.
 	def get_service_list(self, classfilter=None):
@@ -204,7 +204,7 @@ class DbusMonitor(object):
 
 		for servicename in self.items.keys():
 			if not classfilter or servicename.split('.')[0:3] == class_as_list:
-				r[self.items[servicename]['deviceInstance']] = servicename
+				r[servicename] = self.get_device_instance(servicename)
 
 		return r
 
