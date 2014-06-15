@@ -203,7 +203,7 @@ class DbusMonitor(object):
 			class_as_list = classfilter.split('.')[0:3]
 
 		for servicename in self.items.keys():
-			if classfilter is not None and servicename.split('.')[0:3] == class_as_list:
+			if not classfilter or servicename.split('.')[0:3] == class_as_list:
 				r[self.items[servicename]['deviceInstance']] = servicename
 
 		return r
