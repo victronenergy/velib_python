@@ -162,12 +162,13 @@ class DbusMonitor(object):
 					# options will be a dictionary: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
 
 					# check that the whenToLog setting is set to something we expect
-					assert options['whenToLog'] in whentologoptions
+					assert options['whenToLog'] is None or options['whenToLog'] in whentologoptions
 
 					# create and store the VeDbusItemImport. Store it both searchable by names, and in the
 					# relevant whenToLog list.
 					o = VeDbusItemImport(self.dbusConn, serviceName, path, self.handler_value_changes)
-					self.items[serviceName][options['whenToLog']].append(o)
+					if options['whenToLog']:
+						self.items[serviceName][options['whenToLog']].append(o)
 					self.items[serviceName]['paths'][path] = {'dbusObject': o, 'vrmDict': options}
 					logging.debug("    Added %s%s" % (serviceName, path))
 
