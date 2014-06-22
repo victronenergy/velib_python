@@ -136,7 +136,6 @@ class VeDbusService(object):
 
 class VeDbusItemImport(object):
 	## Constructor
-	# And constructs the tree of dbus-object-paths with their dbus-object.
 	# @param bus			the bus-object (SESSION or SYSTEM).
 	# @param serviceName	the dbus-service-name (string).
 	# @param path			the object-path.
