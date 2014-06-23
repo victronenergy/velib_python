@@ -134,7 +134,7 @@ class DbusMonitor(object):
 
 				# create the empty list items.
 				whentologoptions = ['configChange', 'onIntervalAlwaysAndOnEvent', 'onIntervalOnlyWhenChanged',
-								'onIntervalAlways', 'asDeltaHourly']
+								'onIntervalAlways']
 
 				# these lists will contain the VeDbusItemImport objects with that whenToLog setting. Used to
 				for whentolog in whentologoptions:
