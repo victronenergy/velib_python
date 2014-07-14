@@ -20,6 +20,8 @@ class DbusDummyService:
         self._dbusservice = VeDbusService(servicename)
         self._paths = paths
 
+        logging.debug("%s /DeviceInstance = %d" % (servicename, deviceinstance))
+
         # Create the management objects, as specified in the ccgx dbus-api document
         self._dbusservice.add_path('/Management/ProcessName', __file__)
         self._dbusservice.add_path('/Management/ProcessVersion', 'Unkown version, and running on Python ' + platform.python_version())
