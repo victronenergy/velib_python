@@ -71,15 +71,22 @@ class VeDbusService(object):
 		# make the dbus connection available to outside, could make this a true property instead, but ach..
 		self.dbusconn = self._dbusconn
 
-		# Register ourserves on the dbus
-		self._dbusname = dbus.service.BusName(servicename, self._dbusconn)
+		# Register ourselves on the dbus, trigger an error if already in use (do_not_queue)
+		self._dbusname = dbus.service.BusName(servicename, self._dbusconn, do_not_queue=True)
 
 		logging.info("registered ourselves on D-Bus as %s" % servicename)
 
-	# Invalidate all values before going off the dbus
+	# To force immediate deregistering of this dbus service and all its object paths, explicitly
+	# call __del__().
 	def __del__(self):
-		for sensor in self._dbusobjects.values():
-			sensor.local_set_value(None)
+		keys = self._dbusobjects.keys()
+		for key in keys:
+			del self[key]  # Use our own implementation of __delitem__
+
+		if self._dbusname:
+			self._dbusname.__del__()  # Forces call to self._bus.release_name(self._name), see source code
+
+		self._dbusname = None
 
 	# @param callbackonchange	function that will be called when this value is changed. First parameter will
 	#							be the path of the object, second the new value. This callback should return
@@ -124,11 +131,8 @@ class VeDbusService(object):
 		self._dbusobjects[path].local_set_value(newvalue)
 
 	def __delitem__(self, path):
-		# Set value to invalid first, will cause signal change to be emitted when value was not None
-		self[path] = None
-
-		# Todo, check that this is the right command to delete an item.
-		del self[path]
+		self._dbusobjects[path].__del__()  # Invalidates and then removes the object path
+		del self._dbusobjects[path]
 
 	def __contains__(self, path):
 		return path in self._dbusobjects
@@ -276,6 +280,13 @@ class VeDbusItemExport(dbus.service.Object):
 		self._value = value
 		self._description = description
 		self._writeable = writeable
+
+	# To force immediate deregistering of this dbus object, explicitly call __del__().
+	def __del__(self):
+		if len(self._locations) > 0:
+			self.local_set_value(None)
+			self.remove_from_connection()
+			logging.debug("dbusexportitem %s has been removed" % self.__dbus_object_path__)
 
 	## Sets the value. And in case the value is different from what it was, a signal
 	# will be emitted to the dbus. This function is to be used in the python code that
