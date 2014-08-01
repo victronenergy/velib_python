@@ -5,6 +5,9 @@ A class to put a simple service on the dbus, according to victron standards, wit
 paths. See example usage below. It is used to generate dummy data for other processes that rely on the
 dbus. See files in dbus_vebus_to_pvinverter/test and dbus_vrm/test for other usage examples.
 
+To change a value while testing, without stopping your dummy script and changing its initial value, write
+to the dummy data via the dbus. See example.
+
 https://github.com/victronenergy/dbus_vebus_to_pvinverter/tree/master/test
 """
 import gobject
@@ -39,7 +42,7 @@ class DbusDummyService:
         self._dbusservice.add_path('/Connected', 1)
 
         for path, settings in self._paths.iteritems():
-            self._dbusservice.add_path(path, settings['initial'])
+            self._dbusservice.add_path(path, settings['initial'], writeable=True)
 
         gobject.timeout_add(1000, self._update)
 
@@ -57,7 +60,10 @@ class DbusDummyService:
 # from another terminal:
 # dbus com.victronenergy.pvinverter.output
 # dbus com.victronenergy.pvinverter.output /Ac/Energy/Forward GetValue
-# dbus com.victronenergy.pvinverter.output /Ac/Energy/Forward SetValue 20
+# dbus com.victronenergy.pvinverter.output /Ac/Energy/Forward SetValue %20
+#
+# Above examples use this dbus client: http://code.google.com/p/dbus-tools/wiki/DBusCli
+# See their manual to explain the % in %20
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
