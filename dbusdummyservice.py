@@ -2,7 +2,10 @@
 
 """
 A class to put a simple service on the dbus, according to victron standards, with constantly updating
-paths. See example usage below.
+paths. See example usage below. It is used to generate dummy data for other processes that rely on the
+dbus. See files in dbus_vebus_to_pvinverter/test and dbus_vrm/test for other usage examples.
+
+https://github.com/victronenergy/dbus_vebus_to_pvinverter/tree/master/test
 """
 import gobject
 import platform
@@ -46,6 +49,15 @@ class DbusDummyService:
             logging.debug("%s: %s" % (path, self._dbusservice[path]))
         return True
 
+
+# === All code below is to simply run it from the commandline for debugging purposes ===
+
+# It will created a dbus service called com.victronenergy.pvinverter.output.
+# To try this on commandline, start this program in one terminal, and try these commands
+# from another terminal:
+# dbus com.victronenergy.pvinverter.output
+# dbus com.victronenergy.pvinverter.output /Ac/Energy/Forward GetValue
+# dbus com.victronenergy.pvinverter.output /Ac/Energy/Forward SetValue 20
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
