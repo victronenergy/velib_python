@@ -137,7 +137,17 @@ class VeDbusService(object):
 	def __contains__(self, path):
 		return path in self._dbusobjects
 
-
+"""
+Importing basics:
+	- If when we power up, the other D-Bus service does not exist, or it does exist and the path does not
+	  yet exist, still subscribe to a signal: as soon as it comes online it will send a signal with its
+	  initial value.
+	- If when we power up, the other value does exist, save the first
+	- To uses of this class, there is normally no difference between services or object paths that don't
+	  exist and paths that are invalid (= empty array, see above). Both will return None
+	- When a D-Bus service leaves the D-Bus, it will first invalidate all its values, and send signals
+	  with that update, and only then leave the D-Bus.
+"""
 class VeDbusItemImport(object):
 	## Constructor
 	# @param bus			the bus-object (SESSION or SYSTEM).
@@ -149,8 +159,9 @@ class VeDbusItemImport(object):
 		# stored in the bus_getobjectsomewhere?
 		self._serviceName = serviceName
 		self._path = path
-		self._object = bus.get_object(serviceName, path)
-		self._match = None
+		self._proxy = bus.get_object(serviceName, path)
+		self._match = self._match = self._proxy.connect_to_signal(
+			"PropertiesChanged", self._properties_changed_handler)
 		self.eventCallback = eventCallback
 
 		# store the current value in _cachedvalue. When it doesnt exists set _cachedvalue to
@@ -179,7 +190,7 @@ class VeDbusItemImport(object):
 		return value
 
 	def _refreshcachedvalue(self):
-		self._cachedvalue = self._fixtypes(self._object.GetValue())
+		self._cachedvalue = self._fixtypes(self._proxy.GetValue())
 
 	## Returns the path as a string, for example '/AC/L1/V'
 	@property
@@ -200,7 +211,7 @@ class VeDbusItemImport(object):
 
 	## Writes a new value to the dbus-item
 	def set_value(self, newvalue):
-		r = self._object.SetValue(newvalue if newvalue is not None else VEDBUS_INVALID)
+		r = self._proxy.SetValue(newvalue if newvalue is not None else VEDBUS_INVALID)
 
 		# instead of just saving the value, go to the dbus and get it. So we have the right type etc.
 		if r == 0:
@@ -215,7 +226,7 @@ class VeDbusItemImport(object):
 	#
 	# Note that this depends on how the dbus-producer has implemented this.
 	def get_text(self):
-		return self._object.GetText()
+		return self._proxy.GetText()
 
 	## Returns true of object path exists, and false if it doesn't
 	@property
@@ -223,7 +234,7 @@ class VeDbusItemImport(object):
 		# TODO: do some real check instead of this crazy thing.
 		r = False
 		try:
-			r = self._object.GetValue()
+			r = self._proxy.GetValue()
 			r = True
 		except dbus.exceptions.DBusException:
 			pass
@@ -238,15 +249,6 @@ class VeDbusItemImport(object):
 
 	@eventCallback.setter
 	def eventCallback(self, eventCallback):
-
-		# remove the signalMatch from the dbus connection if we no longer need it
-		if eventCallback is None and self._match is not None:
-			self._match.remove()
-
-		# add the signalMatch to the dbus connection if we do need it and didn't have it yet
-		if eventCallback is not None and self._match is None:
-			self._match = self._object.connect_to_signal("PropertiesChanged", self._properties_changed_handler)
-
 		self._eventCallback = eventCallback
 
 	## Is called when the value of the imported bus-item changes.
