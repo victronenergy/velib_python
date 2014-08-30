@@ -9,8 +9,10 @@ import inspect
 import platform
 import pprint
 import sys
+import os
 
 # our own packages
+sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../'))
 from vedbus import VeDbusItemExport
 
 # Dictionary containing all objects exported to dbus

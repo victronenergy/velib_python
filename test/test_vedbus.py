@@ -17,6 +17,7 @@ import fcntl
 from dbus.mainloop.glib import DBusGMainLoop
 
 # Local
+sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../'))
 from vedbus import VeDbusService, VeDbusItemImport
 
 logger = logging.getLogger(__file__)
@@ -98,6 +99,10 @@ class VeDbusItemExportTests(unittest.TestCase):
 		v = self.dbusConn.get_object('com.victronenergy.dbusexample', '/Byte').GetText()
 		self.assertEqual('84', v)
 
+	def test_get_value_byte(self):
+		v = self.dbusConn.get_object('com.victronenergy.dbusexample', '/Byte').GetValue()
+		self.assertEqual(84, v)
+
 	def test_set_value(self):
 		self.assertNotEqual(0, self.dbusConn.get_object('com.victronenergy.dbusexample', '/NotWriteable').SetValue(12))
 		self.assertEqual('original', self.dbusConn.get_object('com.victronenergy.dbusexample', '/NotWriteable').GetValue())
@@ -158,7 +163,10 @@ class VeDbusItemExportTests(unittest.TestCase):
 
 		thread.join()
 
-
+"""
+MVA 2014-08-30: this test of VEDbusItemImport doesn't work, since there is no gobject-mainloop.
+Probably making some automated functional test, using bash and some scripts, will work much
+simpler and better
 class VeDbusItemImportTests(unittest.TestCase):
 	# VeDbusItemImport class is tested against dbus objects exported by fixture_vedbus.py, which is ran as a
 	# subprocess.
@@ -212,7 +220,7 @@ class VeDbusItemImportTests(unittest.TestCase):
 
 		self.assertEqual(0, wc.set_value(50))
 		self.assertEqual(50, wc.get_value())
-
+"""
 
 if __name__ == "__main__":
 	logging.basicConfig(stream=sys.stderr)
