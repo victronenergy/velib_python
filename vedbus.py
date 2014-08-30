@@ -166,8 +166,12 @@ class VeDbusItemImport(object):
 		# store the current value in _cachedvalue. When it doesnt exists set _cachedvalue to
 		# None, same as when a value is invalid
 		self._cachedvalue = None
-		if self.exists:
-			self._refreshcachedvalue()
+		try:
+			v = self._proxy.GetValue()
+		except dbus.exceptions.DBusException:
+			pass
+		else:
+			self._cachedvalue = self._fixtypes(v)
 
 	## delete(self)
 	def __del__(self):
