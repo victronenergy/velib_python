@@ -159,9 +159,8 @@ class VeDbusItemImport(object):
 		# stored in the bus_getobjectsomewhere?
 		self._serviceName = serviceName
 		self._path = path
-		self._proxy = bus.get_object(serviceName, path)
-		self._match = self._match = self._proxy.connect_to_signal(
-			"PropertiesChanged", self._properties_changed_handler)
+		self._proxy = bus.get_object(serviceName, path, introspect=False)
+		self._match = self._proxy.connect_to_signal("PropertiesChanged", self._properties_changed_handler)
 		self.eventCallback = eventCallback
 
 		# store the current value in _cachedvalue. When it doesnt exists set _cachedvalue to
