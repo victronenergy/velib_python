@@ -9,8 +9,11 @@ import dbus.service
 import inspect
 import platform
 import pprint
+import os
+import sys
 
 # our own packages
+sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../'))
 from vedbus import VeDbusService
 
 softwareVersion = '1.0'
@@ -51,9 +54,14 @@ def main(argv):
 		# To invalidate a value (see com.victronenergy.BusItem specs for definition of invalid), set to None
 		dbusservice['/Position'] = None
 
+		dbusservice.add_path('/String', 'this is a string')
+		dbusservice.add_path('/Int', 0)
+		dbusservice.add_path('/NegativeInt', -10)
+		dbusservice.add_path('/Float', 1.5)
+
 		print('try changing our RPM by executing the following command from a terminal\n')
 		print('dbus-send --print-reply --dest=com.victronenergy.example /RPM com.victronenergy.BusItem.SetValue int32:1200')
-		print('Reply should be <> 0, meaning it is not allowed')
+		print('Reply will be <> 0 for values > 1000: not accepted. And reply will be 0 for values < 1000: accepted.')
 		mainloop = gobject.MainLoop()
 		mainloop.run()
 

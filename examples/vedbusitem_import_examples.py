@@ -10,12 +10,19 @@
 import dbus
 import pprint
 import platform
+import os
+import sys
+from dbus.mainloop.glib import DBusGMainLoop
 
 # our own packages
+sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../'))
 from vedbus import VeDbusItemExport, VeDbusItemImport
+
+DBusGMainLoop(set_as_default=True)
 
 # Connect to the sessionbus. Note that on ccgx we use systembus instead.
 dbusConn = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
+
 
 # dictionary containing the different items
 dbusObjects = {}
@@ -24,25 +31,25 @@ dbusObjects = {}
 # some emulator.
 hasVEBus = 'com.victronenergy.vebus.ttyO1' in dbusConn.list_names()
 
-dbusObjects['PyString'] = VeDbusItemImport(dbusConn, 'com.victronenergy.dbusexample', '/String')
+dbusObjects['PyString'] = VeDbusItemImport(dbusConn, 'com.victronenergy.example', '/String')
 if hasVEBus: dbusObjects['C_string'] = VeDbusItemImport(dbusConn, 'com.victronenergy.vebus.ttyO1', '/Mgmt/ProcessName')
 
-dbusObjects['PyFloat'] = VeDbusItemImport(dbusConn, 'com.victronenergy.dbusexample', '/Float')
+dbusObjects['PyFloat'] = VeDbusItemImport(dbusConn, 'com.victronenergy.example', '/Float')
 if hasVEBus: dbusObjects['C_float'] = VeDbusItemImport(dbusConn, 'com.victronenergy.vebus.ttyO1', '/Dc/V')
 
-dbusObjects['PyInt'] = VeDbusItemImport(dbusConn, 'com.victronenergy.dbusexample', '/Int')
+dbusObjects['PyInt'] = VeDbusItemImport(dbusConn, 'com.victronenergy.example', '/Int')
 if hasVEBus: dbusObjects['C_int'] = VeDbusItemImport(dbusConn, 'com.victronenergy.vebus.ttyO1', '/State')
 
-dbusObjects['PyNegativeInt'] = VeDbusItemImport(dbusConn, 'com.victronenergy.dbusexample', '/NegativeInt')
+dbusObjects['PyNegativeInt'] = VeDbusItemImport(dbusConn, 'com.victronenergy.example', '/NegativeInt')
 if hasVEBus: dbusObjects['C_negativeInt'] = VeDbusItemImport(dbusConn, 'com.victronenergy.vebus.ttyO1', '/Dc/I')
 
 # print the results
+print '----'
 for key, o in dbusObjects.items():
 	print key + ' at ' + o.serviceName + o.path
-	print ''
 	pprint.pprint(dbusObjects[key])
-	print 'pprint veBusItem.GetValue(): '
-	pprint.pprint(dbusObjects[key].GetValue())
-	print 'pprint veBusItem.GetText(): '
-	pprint.pprint(dbusObjects[key].GetText())
+	print 'pprint veBusItem.get_value(): '
+	pprint.pprint(dbusObjects[key].get_value())
+	print 'pprint veBusItem.get_text(): '
+	pprint.pprint(dbusObjects[key].get_text())
 	print '----'
