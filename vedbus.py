@@ -29,7 +29,7 @@ import platform
 #   They should! And after taking one value away, do we need to know that someone left
 #   the bus? Or we just keep that value in invalidated for ever? Result is that we can't
 #   see the difference anymore between an invalidated value and a value that was first on
-#   the bus and later not anymore.
+#   the bus and later not anymore. See comments above VeDbusItemImport as well.
 # 9 there are probably more todos in the code below.
 
 # Some thoughts with regards to the data types:
@@ -139,29 +139,39 @@ class VeDbusService(object):
 
 """
 Importing basics:
-	- If when we power up, the other D-Bus service does not exist, or it does exist and the path does not
+	- If when we power up, the D-Bus service does not exist, or it does exist and the path does not
 	  yet exist, still subscribe to a signal: as soon as it comes online it will send a signal with its
-	  initial value.
-	- If when we power up, the other value does exist, save the first
-	- To uses of this class, there is normally no difference between services or object paths that don't
-	  exist and paths that are invalid (= empty array, see above). Both will return None
+	  initial value, which VeDbusItemImport will receive and use to update local cache. And, when set,
+	  call the eventCallback.
+	- If when we power up, save it
+	- When using get_value, know that there is no difference between services (or object paths) that don't
+	  exist and paths that are invalid (= empty array, see above). Both will return None. In case you do
+	  really want to know ifa path exists or not, use the exists property.
 	- When a D-Bus service leaves the D-Bus, it will first invalidate all its values, and send signals
-	  with that update, and only then leave the D-Bus.
+	  with that update, and only then leave the D-Bus. (or do we need to subscribe to the NameOwnerChanged-
+	  signal!?!) To be discussed and make sure. Not really urgent, since all existing code that uses this
+	  class already subscribes to the NameOwnerChanged signal, and subsequently removes instances of this
+	  class.
 """
 class VeDbusItemImport(object):
 	## Constructor
 	# @param bus			the bus-object (SESSION or SYSTEM).
-	# @param serviceName	the dbus-service-name (string).
-	# @param path			the object-path.
+	# @param serviceName	the dbus-service-name (string), for example 'com.victronenergy.battery.ttyO1'
+	# @param path			the object-path, for example '/Dc/V'
 	# @param eventCallback	function that you want to be called on a value change
-	def __init__(self, bus, serviceName, path, eventCallback=None):
+	# @param createSignal   only set this to False if you use this function to one time read a value
+	def __init__(self, bus, serviceName, path, eventCallback=None, createsignal=True):
 		# TODO: is it necessary to store _serviceName and _path? Isn't it
 		# stored in the bus_getobjectsomewhere?
 		self._serviceName = serviceName
 		self._path = path
 		self._proxy = bus.get_object(serviceName, path, introspect=False)
-		self._match = self._proxy.connect_to_signal("PropertiesChanged", self._properties_changed_handler)
 		self.eventCallback = eventCallback
+
+		assert eventCallback is None or createsignal == True
+		if createsignal:
+			self._match = self._proxy.connect_to_signal(
+				"PropertiesChanged", self._properties_changed_handler)
 
 		# store the current value in _cachedvalue. When it doesnt exists set _cachedvalue to
 		# None, same as when a value is invalid
@@ -173,12 +183,27 @@ class VeDbusItemImport(object):
 		else:
 			self._cachedvalue = self._fixtypes(v)
 
-	## delete(self)
-	def __del__(self):
-		if self._match:
-			# remove the signal match from the dbus connection.
-			self._match.remove()
-			del(self._match)
+	# Do not create a __del__() function, since that will create a memory leak. See text from
+	# https://docs.python.org/2/library/gc.html#id2:
+	#   Objects that have __del__() methods and are part of a reference cycle cause the entire reference
+	#   cycle to be uncollectable, including objects not necessarily in the cycle but reachable only from
+	#   it. Python doesn’t collect such cycles automatically because, in general, it isn’t possible for
+	#   Python to guess a safe order in which to run the __del__() methods.
+	#
+	# At first we had self._match.remove() in the __del__() statement. But just having the __del__() state-
+	# ment created a memory leak. It was then also tried to make the reference to
+	# self._properties_changed_handler a weakRef, by using weakref.ref(self._properties_changed_handler) and
+	# weakref.proxy(self._properties_changed_handler) but that did not work:
+	#	ERROR:dbus.connection:Exception in handler for D-Bus signal:
+	#	Traceback (most recent call last):
+	#	File "/usr/lib/python2.7/site-packages/dbus/connection.py", line 230, in maybe_handle_message
+	#		self._handler(*args, **kwargs)
+	#	ReferenceError: weakly-referenced object no longer exists
+	#
+	# And after some more testing, I concluded that remove() wasn't necessary. Even after a full night
+	# of adding and removing a dbus service every 4 to 6 seconds, each of them causing some 50
+	# VeDbusItemImports (and corresponding signals) to be created and deleted again, no memory increase is
+	# seen in vrmlogger, or the dbus interface.
 
 	## Do the conversions that are necessary when getting something from the D-Bus.
 	def _fixtypes(self, value):

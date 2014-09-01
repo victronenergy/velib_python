@@ -98,14 +98,12 @@ class DbusMonitor(object):
 
 		if newowner != '':
 			# so we found some new service. Check if we can do something with it.
-
 			newdeviceadded = self.scan_dbus_service(name)
 			if newdeviceadded and self.deviceAddedCallback is not None:
 				self.deviceAddedCallback(name, self.get_device_instance(name))
 
 		elif name in self.items:
 			# it dissapeared, we need to remove it.
-
 			logging.info("%s dissapeared from the dbus. Removing it from our lists" % name)
 			i = self.items[name]['deviceInstance']
 			del self.items[name]
@@ -147,7 +145,8 @@ class DbusMonitor(object):
 				if serviceName in ['com.victronenergy.vebus.ttyO1']:
 					self.items[serviceName]['deviceInstance'] = 0
 				else:
-					self.items[serviceName]['deviceInstance'] = VeDbusItemImport(self.dbusConn, serviceName, '/DeviceInstance').get_value()
+					self.items[serviceName]['deviceInstance'] = VeDbusItemImport(
+						self.dbusConn, serviceName, '/DeviceInstance', createsignal=False).get_value()
 
 					# Some services do not have an instance, such as gps and settings. Set instance to 0 for those.
 					if self.items[serviceName]['deviceInstance'] is None:
@@ -244,6 +243,9 @@ class DbusMonitor(object):
 
 		return result
 
+
+# ====== ALL CODE BELOW THIS LINE IS PURELY FOR DEVELOPING THIS CLASS ======
+
 # Example function that can be used as a starting point to use this code
 def value_changed_on_dbus(dbusServiceName, dbusPath, dict, changes, deviceInstance):
 	logging.debug("0 ----------------")
@@ -254,6 +256,15 @@ def value_changed_on_dbus(dbusServiceName, dbusPath, dict, changes, deviceInstan
 	logging.debug("5 deviceInstance: %s" % deviceInstance)
 	logging.debug("6 - end")
 
+
+def nameownerchange(a, b):
+	# used to find memory leaks in dbusmonitor and VeDbusItemImport
+	import gc
+	gc.collect()
+	objects = gc.get_objects()
+	print len([o for o in objects if type(o).__name__ == 'VeDbusItemImport'])
+	print len([o for o in objects if type(o).__name__ == 'SignalMatch'])
+	print len(objects)
 
 
 # We have a mainloop, but that is just for developing this code. Normally above class & code is used from
@@ -279,7 +290,8 @@ def main():
 	DBusGMainLoop(set_as_default=True)
 
 	import datalist   # from the dbus_vrm repository
-	d = DbusMonitor(datalist.vrmTree, value_changed_on_dbus)
+	d = DbusMonitor(datalist.vrmtree, value_changed_on_dbus,
+		deviceAddedCallback=nameownerchange, deviceRemovedCallback=nameownerchange)
 
 	logging.info("==configchange values==")
 	logging.info(pprint.pformat(d.get_values(['configChange'])))
@@ -288,9 +300,9 @@ def main():
 	logging.info(pprint.pformat(d.get_values(['onIntervalAlways', 'onIntervalAlwaysAndOnEvent'])))
 
 	# Start and run the mainloop
-	#logging.info("Starting mainloop, responding on only events")
-	#mainloop = gobject.MainLoop()
-	#mainloop.run()
+	logging.info("Starting mainloop, responding on only events")
+	mainloop = gobject.MainLoop()
+	mainloop.run()
 
 if __name__ == "__main__":
 	main()

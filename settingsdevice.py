@@ -1,8 +1,3 @@
-## IMPORTANT NOTE - MVA 2014-3-8
-# Have had a short look at this code. And use it in the new vrmlogger. There is a lot that can be
-# improved. But it does seem to work. Cleaned it up a bit as well, and broke the interface...
-# As this was only used by the kwhcounters and the old logscript: who cares!
-
 import dbus
 import logging
 
@@ -65,7 +60,7 @@ class SettingsDevice(object):
 				
 				# Add the setting
 				# TODO, make an object that inherits VeDbusItemImport, and complete the D-Bus settingsitem interface
-				VeDbusItemImport(self._bus, self._dbus_name, '/Settings')._object.AddSetting('', path, value, itemType, options[MINIMUM], options[MAXIMUM])
+				VeDbusItemImport(self._bus, self._dbus_name, '/Settings', createsignal=False)._object.AddSetting('', path, value, itemType, options[MINIMUM], options[MAXIMUM])
 
 				busitem = VeDbusItemImport(self._bus, self._dbus_name, options[PATH], self.handleChangedSetting)
 			
@@ -81,7 +76,7 @@ class SettingsDevice(object):
 		for s, options in self._supportedSettings.items():
 			if options[PATH] == path:
 				setting = s
-				# TODO: stop for loop, no internet now, and I don't know the syntax
+				break
 
 		assert setting is not None
 
@@ -90,7 +85,6 @@ class SettingsDevice(object):
 
 		if self._eventCallback is None:
 			return
-
 
 		self._eventCallback(setting, oldvalue, changes['Value'])
 
