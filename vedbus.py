@@ -165,6 +165,7 @@ class VeDbusItemImport(object):
 		# stored in the bus_getobjectsomewhere?
 		self._serviceName = serviceName
 		self._path = path
+		# TODO: _proxy is being used in settingsdevice.py, make a getter for that
 		self._proxy = bus.get_object(serviceName, path, introspect=False)
 		self.eventCallback = eventCallback
 

@@ -60,7 +60,7 @@ class SettingsDevice(object):
 				
 				# Add the setting
 				# TODO, make an object that inherits VeDbusItemImport, and complete the D-Bus settingsitem interface
-				VeDbusItemImport(self._bus, self._dbus_name, '/Settings', createsignal=False)._object.AddSetting('', path, value, itemType, options[MINIMUM], options[MAXIMUM])
+				VeDbusItemImport(self._bus, self._dbus_name, '/Settings', createsignal=False)._proxy.AddSetting('', path, value, itemType, options[MINIMUM], options[MAXIMUM])
 
 				busitem = VeDbusItemImport(self._bus, self._dbus_name, options[PATH], self.handleChangedSetting)
 			
