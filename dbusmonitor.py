@@ -241,6 +241,21 @@ class DbusMonitor(object):
 					else:
 						result[code + "[" + str(deviceInstance) + "]"] = d.get_value()
 
+			# TODO: Remove this workaround once full daily history is implemented
+			# Reason for workaround: all the dicts are indexed on d-bus path. For yield today and
+			# yesterday, as well as max power today and yesterday, the D-Bus path is the same. And
+			# the 'yesterday' values are last in de dict definition in datalist.py.Therefore the today
+			# values are simply missing.
+			if servicename.split('.')[0:3] == ['com', 'victronenergy', 'solarcharger']:
+				if converter:
+					result["YT[" + str(deviceInstance) + "]"] = converter.convert(
+						'YT', serviceDict['paths']['/History/Daily/Yield']['dbusObject'].get_value())
+					result["MCPT[" + str(deviceInstance) + "]"] = converter.convert(
+						'MCPT', serviceDict['paths']['/History/Daily/MaxPower']['dbusObject'].get_value())
+				else:
+					result["YT[" + str(deviceInstance) + "]"] = serviceDict['paths']['/History/Daily/Yield']['dbusObject'].get_value()
+					result["MCPT[" + str(deviceInstance) + "]"] = serviceDict['paths']['/History/Daily/MaxPower']['dbusObject'].get_value()
+
 		return result
 
 
@@ -288,6 +303,10 @@ def main():
 
 	# Have a mainloop, so we can send/receive asynchronous calls to and from dbus
 	DBusGMainLoop(set_as_default=True)
+
+	import os
+	import sys
+	sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../../'))
 
 	import datalist   # from the dbus_vrm repository
 	d = DbusMonitor(datalist.vrmtree, value_changed_on_dbus,
