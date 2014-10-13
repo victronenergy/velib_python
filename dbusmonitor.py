@@ -248,10 +248,14 @@ class DbusMonitor(object):
 			# values are simply missing.
 			if servicename.split('.')[0:3] == ['com', 'victronenergy', 'solarcharger']:
 				if converter:
-					result["YT[" + str(deviceInstance) + "]"] = converter.convert(
-						'YT', serviceDict['paths']['/History/Daily/Yield']['dbusObject'].get_value())
-					result["MCPT[" + str(deviceInstance) + "]"] = converter.convert(
-						'MCPT', serviceDict['paths']['/History/Daily/MaxPower']['dbusObject'].get_value())
+					yt = serviceDict['paths']['/History/Daily/Yield']['dbusObject'].get_value()
+					if yt is not None:
+						result["YT[" + str(deviceInstance) + "]"] = converter.convert('YT', yt)
+
+					mcpt = serviceDict['paths']['/History/Daily/MaxPower']['dbusObject'].get_value()
+					if mcpt is not None:
+						result["MCPT[" + str(deviceInstance) + "]"] = converter.convert('MCPT', mcpt)
+
 				else:
 					result["YT[" + str(deviceInstance) + "]"] = serviceDict['paths']['/History/Daily/Yield']['dbusObject'].get_value()
 					result["MCPT[" + str(deviceInstance) + "]"] = serviceDict['paths']['/History/Daily/MaxPower']['dbusObject'].get_value()
