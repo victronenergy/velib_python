@@ -154,6 +154,12 @@ Importing basics:
 	  signal!?!) To be discussed and make sure. Not really urgent, since all existing code that uses this
 	  class already subscribes to the NameOwnerChanged signal, and subsequently removes instances of this
 	  class.
+
+Read when using this class:
+Note that when a service leaves that D-Bus without invalidating all its exported objects first, for
+example because it is killed, VeDbusItemImport doesn't have a clue. So when using VeDbusItemImport,
+make sure to also subscribe to the NamerOwnerChanged signal on bus-level. Or just use dbusmonitor,
+because that takes care of all of that for you.
 """
 class VeDbusItemImport(object):
 	## Constructor
@@ -161,7 +167,9 @@ class VeDbusItemImport(object):
 	# @param serviceName	the dbus-service-name (string), for example 'com.victronenergy.battery.ttyO1'
 	# @param path			the object-path, for example '/Dc/V'
 	# @param eventCallback	function that you want to be called on a value change
-	# @param createSignal   only set this to False if you use this function to one time read a value
+	# @param createSignal   only set this to False if you use this function to one time read a value. When
+	#						leaving it to True, make sure to also subscribe to the NameOwnerChanged signal
+	#						elsewhere. See also note some 15 lines up.
 	def __init__(self, bus, serviceName, path, eventCallback=None, createsignal=True):
 		# TODO: is it necessary to store _serviceName and _path? Isn't it
 		# stored in the bus_getobjectsomewhere?
