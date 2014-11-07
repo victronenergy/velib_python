@@ -42,15 +42,21 @@ class DbusDummyService:
         self._dbusservice.add_path('/Connected', 1)
 
         for path, settings in self._paths.iteritems():
-            self._dbusservice.add_path(path, settings['initial'], writeable=True)
+            self._dbusservice.add_path(
+                path, settings['initial'], writeable=True, onchangecallback=self._handlechangedvalue)
 
         gobject.timeout_add(1000, self._update)
 
     def _update(self):
         for path, settings in self._paths.iteritems():
-            self._dbusservice[path] = self._dbusservice[path] + settings['update']
-            logging.debug("%s: %s" % (path, self._dbusservice[path]))
+            if 'update' in settings:
+                self._dbusservice[path] = self._dbusservice[path] + settings['update']
+                logging.debug("%s: %s" % (path, self._dbusservice[path]))
         return True
+
+    def _handlechangedvalue(self, path, value):
+        logging.debug("someone else updated %s to %s" % (path, value))
+        return True # accept the change
 
 
 # === All code below is to simply run it from the commandline for debugging purposes ===
@@ -77,7 +83,9 @@ def main():
         deviceinstance=0,
         paths={
             '/Ac/Energy/Forward': {'initial': 0, 'update': 1},
-            '/Position': {'initial': 0, 'update': 0}})
+            '/Position': {'initial': 0, 'update': 0},
+            '/Nonupdatingvalue/UseForTestingWritesForExample': {'initial': None}
+        })
 
     logging.info('Connected to dbus, and switching over to gobject.MainLoop() (= event based)')
     mainloop = gobject.MainLoop()

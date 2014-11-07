@@ -101,6 +101,8 @@ class VeDbusService(object):
 				self._dbusconn, path, value, description, writeable,
 				self._value_changed, gettextcallback)
 
+		logging.debug('added %s with start value %s. Writeable is %s' % (path, value, writeable))
+
 	# Add the mandatory paths, as per victron dbus api doc
 	def add_mandatory_paths(self, processname, processversion, connection,
 			deviceinstance, productid, productname, firmwareversion, hardwareversion, connected):
