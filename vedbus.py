@@ -5,6 +5,8 @@ import dbus
 import dbus.service
 import logging
 import platform
+import traceback
+import os
 
 # vedbus contains three classes:
 # VeDbusItemImport -> use this to read data from the dbus, ie import
@@ -297,7 +299,13 @@ class VeDbusItemImport(object):
 			changes['Value'] = self._fixtypes(changes['Value'])
 			self._cachedvalue = changes['Value']
 			if self._eventCallback:
-				self._eventCallback(self._serviceName, self._path, changes)
+				# The reason behind this try/except is to prevent errors silently ending up the an error
+				# handler in the dbus code.
+				try:
+					self._eventCallback(self._serviceName, self._path, changes)
+				except:
+					traceback.print_exc()
+					os._exit(1)  # sys.exit() is not used, since that also throws an exception
 
 
 class VeDbusItemExport(dbus.service.Object):
