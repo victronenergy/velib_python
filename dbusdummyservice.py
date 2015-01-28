@@ -22,21 +22,21 @@ sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../ext/velib_python'
 from vedbus import VeDbusService
 
 class DbusDummyService:
-    def __init__(self, servicename, deviceinstance, paths):
+    def __init__(self, servicename, deviceinstance, paths, productname='Dummy product', connection='Dummy service'):
         self._dbusservice = VeDbusService(servicename)
         self._paths = paths
 
         logging.debug("%s /DeviceInstance = %d" % (servicename, deviceinstance))
 
         # Create the management objects, as specified in the ccgx dbus-api document
-        self._dbusservice.add_path('/Management/ProcessName', __file__)
-        self._dbusservice.add_path('/Management/ProcessVersion', 'Unkown version, and running on Python ' + platform.python_version())
-        self._dbusservice.add_path('/Management/Connection', 'Data taken from mk2dbus')
+        self._dbusservice.add_path('/Mgmt/ProcessName', __file__)
+        self._dbusservice.add_path('/Mgmt/ProcessVersion', 'Unkown version, and running on Python ' + platform.python_version())
+        self._dbusservice.add_path('/Mgmt/Connection', connection)
 
         # Create the mandatory objects
         self._dbusservice.add_path('/DeviceInstance', deviceinstance)
         self._dbusservice.add_path('/ProductId', 0)
-        self._dbusservice.add_path('/ProductName', 'vebus device with ac sensors')
+        self._dbusservice.add_path('/ProductName', productname)
         self._dbusservice.add_path('/FirmwareVersion', 0)
         self._dbusservice.add_path('/HardwareVersion', 0)
         self._dbusservice.add_path('/Connected', 1)
