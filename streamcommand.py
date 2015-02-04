@@ -30,9 +30,7 @@ class StreamCommand(object):
 				self.process = None
 				return
 
-			while self.process.poll() is None:
-				self.readandsend()
-				sleep(0.1)
+			self.readandsend()
 
 			logger.info('Thread finished for running %s' % command)
 
@@ -65,11 +63,12 @@ class StreamCommand(object):
 	def readandsend(self):
 		# TODO: check that below code works OK with vup stdout encoding (UTF-8), including non-standard ASCII chars
 
-		self.process.stdout.flush()
-		lines = self.process.stdout.readlines()
-		logger.debug("lines: %s" % len(lines))
-		if len(lines) > 0:
+		while True:
+			self.process.stdout.flush()
+			line = self.process.stdout.readline()
 			# Max length on pubnub is 1800 chars, and output is much better readable with the bare eye
 			# when sent per line. So no need to send it alltogether.
-			for line in lines:
-				self.feedbacksender.send({"status": "running", "xmloutput": line})
+			self.feedbacksender.send({"status": "running", "xmloutput": line})
+			if line == '' and self.process.poll() != None:
+				break
+			sleep(0.1)
