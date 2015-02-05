@@ -95,22 +95,23 @@ class DbusMonitor(object):
 		idle_add(self.process_name_owner_changed, name, oldowner, newowner)
 
 	def process_name_owner_changed(self, name, oldowner, newowner):
-		# logging.debug('D-Bus name owner changed. Name: %s, oldOwner: %s, newOwner: %s'
-		#					% (name, oldowner, newowner))
+		try:
+			if newowner != '':
+				# so we found some new service. Check if we can do something with it.
+				newdeviceadded = self.scan_dbus_service(name)
+				if newdeviceadded and self.deviceAddedCallback is not None:
+					self.deviceAddedCallback(name, self.get_device_instance(name))
 
-		if newowner != '':
-			# so we found some new service. Check if we can do something with it.
-			newdeviceadded = self.scan_dbus_service(name)
-			if newdeviceadded and self.deviceAddedCallback is not None:
-				self.deviceAddedCallback(name, self.get_device_instance(name))
-
-		elif name in self.items:
-			# it dissapeared, we need to remove it.
-			logging.info("%s dissapeared from the dbus. Removing it from our lists" % name)
-			i = self.items[name]['deviceInstance']
-			del self.items[name]
-			if self.deviceRemovedCallback is not None:
-				self.deviceRemovedCallback(name, i)
+			elif name in self.items:
+				# it dissapeared, we need to remove it.
+				logging.info("%s dissapeared from the dbus. Removing it from our lists" % name)
+				i = self.items[name]['deviceInstance']
+				del self.items[name]
+				if self.deviceRemovedCallback is not None:
+					self.deviceRemovedCallback(name, i)
+		except:
+			traceback.print_exc()
+			os._exit(1)  # sys.exit() is not used, since that also throws an exception
 
 	# Scans the given dbus service to see if it contains anything interesting for us. If it does, add
 	# it to our list of monitored D-Bus services.
