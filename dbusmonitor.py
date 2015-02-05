@@ -25,6 +25,8 @@ import platform
 import logging
 import argparse
 import pprint
+import traceback
+import os
 
 # our own packages
 from vedbus import VeDbusItemExport, VeDbusItemImport
@@ -181,8 +183,13 @@ class DbusMonitor(object):
 
 	def execute_value_changes(self, serviceName, objectPath, changes):
 		if self.valueChangedCallback is not None:
-			self.valueChangedCallback(serviceName, objectPath,
-				self.items[serviceName]['paths'][objectPath]['vrmDict'], changes, self.get_device_instance(serviceName))
+			try:
+				self.valueChangedCallback(serviceName, objectPath,
+					self.items[serviceName]['paths'][objectPath]['vrmDict'], changes, self.get_device_instance(serviceName))
+			except:
+				traceback.print_exc()
+				os._exit(1)  # sys.exit() is not used, since that also throws an exception
+
 
 	# Gets the value for a certain servicename and path, returns the default_value when
 	# request service and objectPath combination does not not exists or when it is invalid
