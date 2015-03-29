@@ -30,6 +30,10 @@ import os
 
 # our own packages
 from vedbus import VeDbusItemExport, VeDbusItemImport
+from ve_utils import exit_on_error
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # Dictionary containing all devices and paths to look for
 
@@ -74,44 +78,40 @@ class DbusMonitor(object):
 		self.dbusConn.add_signal_receiver(self.dbus_mount_event, signal_name='mount')
 		self.dbusConn.add_signal_receiver(self.dbus_umount_event, signal_name='umount')
 
-		logging.info('===== Search on dbus for services that we will monitor starting... =====')
+		logger.info('===== Search on dbus for services that we will monitor starting... =====')
 		serviceNames = self.dbusConn.list_names()
 		for serviceName in serviceNames:
 			self.scan_dbus_service(serviceName)
-		logging.info('===== Search on dbus for services that we will monitor finished =====')
+		logger.info('===== Search on dbus for services that we will monitor finished =====')
 
 	def dbus_mount_event(self, device, mountpoint):
-		logging.warning('mount event!')
+		logger.warning('mount event!')
 		if self.mountEventCallback is not None:
 			self.mountEventCallback('mount', device, mountpoint)
 
 	def dbus_umount_event(self, device, mountpoint):
-		logging.warning('umount event!')
+		logger.warning('umount event!')
 		if self.mountEventCallback is not None:
 			self.mountEventCallback('umount', device, mountpoint)
 
 	def dbus_name_owner_changed(self, name, oldowner, newowner):
 		#decouple, and process in main loop
-		idle_add(self.process_name_owner_changed, name, oldowner, newowner)
+		idle_add(exit_on_error, self._process_name_owner_changed, name, oldowner, newowner)
 
-	def process_name_owner_changed(self, name, oldowner, newowner):
-		try:
-			if newowner != '':
-				# so we found some new service. Check if we can do something with it.
-				newdeviceadded = self.scan_dbus_service(name)
-				if newdeviceadded and self.deviceAddedCallback is not None:
-					self.deviceAddedCallback(name, self.get_device_instance(name))
+	def _process_name_owner_changed(self, name, oldowner, newowner):
+		if newowner != '':
+			# so we found some new service. Check if we can do something with it.
+			newdeviceadded = self.scan_dbus_service(name)
+			if newdeviceadded and self.deviceAddedCallback is not None:
+				self.deviceAddedCallback(name, self.get_device_instance(name))
 
-			elif name in self.items:
-				# it dissapeared, we need to remove it.
-				logging.info("%s dissapeared from the dbus. Removing it from our lists" % name)
-				i = self.items[name]['deviceInstance']
-				del self.items[name]
-				if self.deviceRemovedCallback is not None:
-					self.deviceRemovedCallback(name, i)
-		except:
-			traceback.print_exc()
-			os._exit(1)  # sys.exit() is not used, since that also throws an exception
+		elif name in self.items:
+			# it dissapeared, we need to remove it.
+			logger.info("%s dissapeared from the dbus. Removing it from our lists" % name)
+			i = self.items[name]['deviceInstance']
+			del self.items[name]
+			if self.deviceRemovedCallback is not None:
+				self.deviceRemovedCallback(name, i)
 
 	# Scans the given dbus service to see if it contains anything interesting for us. If it does, add
 	# it to our list of monitored D-Bus services.
@@ -124,7 +124,7 @@ class DbusMonitor(object):
 
 		for s in self.dbusTree.keys():
 			if serviceName.split('.')[0:3] == s.split('.')[0:3]:
-				logging.info("Found: %s matches %s, scanning and storing items" % (serviceName, s))
+				logger.info("Found: %s matches %s, scanning and storing items" % (serviceName, s))
 				newDeviceAdded = True
 
 				# we should never be notified to add a D-Bus service that we already have. If this assertion
@@ -157,7 +157,7 @@ class DbusMonitor(object):
 					else:
 						self.items[serviceName]['deviceInstance'] = int(self.items[serviceName]['deviceInstance'])
 
-				logging.info("       %s has device instance %s" % (serviceName, self.items[serviceName]['deviceInstance']))
+				logger.info("       %s has device instance %s" % (serviceName, self.items[serviceName]['deviceInstance']))
 
 				for path, options in self.dbusTree[s].items():
 					# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
@@ -172,25 +172,20 @@ class DbusMonitor(object):
 					if options['whenToLog']:
 						self.items[serviceName][options['whenToLog']].append(o)
 					self.items[serviceName]['paths'][path] = {'dbusObject': o, 'vrmDict': options}
-					logging.debug("    Added %s%s" % (serviceName, path))
+					logger.debug("    Added %s%s" % (serviceName, path))
 
-				logging.debug("Finished scanning and storing items for %s" % serviceName)
+				logger.debug("Finished scanning and storing items for %s" % serviceName)
 
 		return newDeviceAdded
 
 	def handler_value_changes(self, serviceName, objectPath, changes):
 		# decouple, and process update in the mainloop
-		idle_add(self.execute_value_changes, serviceName, objectPath, changes)
+		idle_add(exit_on_error, self._execute_value_changes, serviceName, objectPath, changes)
 
-	def execute_value_changes(self, serviceName, objectPath, changes):
+	def _execute_value_changes(self, serviceName, objectPath, changes):
 		if self.valueChangedCallback is not None:
-			try:
-				self.valueChangedCallback(serviceName, objectPath,
-					self.items[serviceName]['paths'][objectPath]['vrmDict'], changes, self.get_device_instance(serviceName))
-			except:
-				traceback.print_exc()
-				os._exit(1)  # sys.exit() is not used, since that also throws an exception
-
+			self.valueChangedCallback(serviceName, objectPath,
+				self.items[serviceName]['paths'][objectPath]['vrmDict'], changes, self.get_device_instance(serviceName))
 
 	# Gets the value for a certain servicename and path, returns the default_value when
 	# request service and objectPath combination does not not exists or when it is invalid
@@ -277,13 +272,13 @@ class DbusMonitor(object):
 
 # Example function that can be used as a starting point to use this code
 def value_changed_on_dbus(dbusServiceName, dbusPath, dict, changes, deviceInstance):
-	logging.debug("0 ----------------")
-	logging.debug("1 %s%s changed" % (dbusServiceName, dbusPath))
-	logging.debug("2 vrm dict     : %s" % dict)
-	logging.debug("3 changes-text: %s" % changes['Text'])
-	logging.debug("4 changes-value: %s" % changes['Value'])
-	logging.debug("5 deviceInstance: %s" % deviceInstance)
-	logging.debug("6 - end")
+	logger.debug("0 ----------------")
+	logger.debug("1 %s%s changed" % (dbusServiceName, dbusPath))
+	logger.debug("2 vrm dict     : %s" % dict)
+	logger.debug("3 changes-text: %s" % changes['Text'])
+	logger.debug("4 changes-value: %s" % changes['Value'])
+	logger.debug("5 deviceInstance: %s" % deviceInstance)
+	logger.debug("6 - end")
 
 
 def nameownerchange(a, b):
@@ -299,21 +294,9 @@ def nameownerchange(a, b):
 # We have a mainloop, but that is just for developing this code. Normally above class & code is used from
 # some other class, such as vrmLogger or the pubsub Implementation.
 def main():
-	# Argument parsing
-	parser = argparse.ArgumentParser(
-		description='dbusMonitor.py demo run'
-	)
-
-	parser.add_argument("-d", "--debug", help="set logging level to debug",
-					action="store_true")
-
-	args = parser.parse_args()
-
 	# Init logging
-	logging.basicConfig(level=(logging.DEBUG if args.debug else logging.INFO))
-	logging.info(__file__ + " is starting up")
-	logLevel = {0: 'NOTSET', 10: 'DEBUG', 20: 'INFO', 30: 'WARNING', 40: 'ERROR'}
-	logging.info('Loglevel set to ' + logLevel[logging.getLogger().getEffectiveLevel()])
+	logging.basicConfig(level=logging.DEBUG)
+	logger.info(__file__ + " is starting up")
 
 	# Have a mainloop, so we can send/receive asynchronous calls to and from dbus
 	DBusGMainLoop(set_as_default=True)
@@ -326,14 +309,14 @@ def main():
 	d = DbusMonitor(datalist.vrmtree, value_changed_on_dbus,
 		deviceAddedCallback=nameownerchange, deviceRemovedCallback=nameownerchange)
 
-	logging.info("==configchange values==")
-	logging.info(pprint.pformat(d.get_values(['configChange'])))
+	logger.info("==configchange values==")
+	logger.info(pprint.pformat(d.get_values(['configChange'])))
 
-	logging.info("==onIntervalAlways and onIntervalOnlyWhenChanged==")
-	logging.info(pprint.pformat(d.get_values(['onIntervalAlways', 'onIntervalAlwaysAndOnEvent'])))
+	logger.info("==onIntervalAlways and onIntervalOnlyWhenChanged==")
+	logger.info(pprint.pformat(d.get_values(['onIntervalAlways', 'onIntervalAlwaysAndOnEvent'])))
 
 	# Start and run the mainloop
-	logging.info("Starting mainloop, responding on only events")
+	logger.info("Starting mainloop, responding on only events")
 	mainloop = gobject.MainLoop()
 	mainloop.run()
 
