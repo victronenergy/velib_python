@@ -13,5 +13,8 @@ def exit_on_error(func, *args, **kwargs):
 	except:
 		from traceback import print_exc
 		print_exc()
-		from sys import exit
-		exit(1)
+
+		# sys.exit() is not used, since that throws an exception, which does not lead to a program
+		# halt when used in a dbus callback, see connection.py in the Python/Dbus libraries, line 230.
+		import os
+		os._exit(1)
