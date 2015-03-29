@@ -241,10 +241,13 @@ class DbusMonitor(object):
 			for d in serviceDict[category]:
 				if d.get_value() is not None:
 					code = serviceDict['paths'][d.path]['vrmDict']['code']
-					if converter:
-						result[code + "[" + str(deviceInstance) + "]"] = converter.convert(code, d.get_value())
-					else:
-						result[code + "[" + str(deviceInstance) + "]"] = d.get_value()
+					value = d.get_value() if not converter else converter.convert(code, d.get_value())
+
+					precision = serviceDict['paths'][d.path]['vrmDict'].get('precision')
+					if precision:
+						value = round(value, precision)
+
+					result[code + "[" + str(deviceInstance) + "]"] = value
 
 			# TODO: Remove this workaround once full daily history is implemented
 			# Reason for workaround: all the dicts are indexed on d-bus path. For yield today and
