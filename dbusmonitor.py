@@ -249,25 +249,6 @@ class DbusMonitor(object):
 
 					result[code + "[" + str(deviceInstance) + "]"] = value
 
-			# TODO: Remove this workaround once full daily history is implemented
-			# Reason for workaround: all the dicts are indexed on d-bus path. For yield today and
-			# yesterday, as well as max power today and yesterday, the D-Bus path is the same. And
-			# the 'yesterday' values are last in de dict definition in datalist.py.Therefore the today
-			# values are simply missing.
-			if servicename.split('.')[0:3] == ['com', 'victronenergy', 'solarcharger']:
-				if converter:
-					yt = serviceDict['paths']['/History/Daily/Yield']['dbusObject'].get_value()
-					if yt is not None:
-						result["YT[" + str(deviceInstance) + "]"] = converter.convert('YT', yt)
-
-					mcpt = serviceDict['paths']['/History/Daily/MaxPower']['dbusObject'].get_value()
-					if mcpt is not None:
-						result["MCPT[" + str(deviceInstance) + "]"] = converter.convert('MCPT', mcpt)
-
-				else:
-					result["YT[" + str(deviceInstance) + "]"] = serviceDict['paths']['/History/Daily/Yield']['dbusObject'].get_value()
-					result["MCPT[" + str(deviceInstance) + "]"] = serviceDict['paths']['/History/Daily/MaxPower']['dbusObject'].get_value()
-
 		return result
 
 
