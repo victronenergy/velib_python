@@ -39,3 +39,37 @@ def get_vrm_portal_id():
 	__vrm_portal_id = ''.join(['%02x' % ord(char) for char in info[18:24]])
 
 	return __vrm_portal_id
+
+
+# See VE.Can registers - public.docx for definition of this conversion
+def convert_vreg_version_to_readable(version):
+	def str_to_arr(x, length):
+		a = []
+		for i in range(0, len(x), length):
+			a.append(x[i:i+length])
+		return a
+
+	x = "%x" % version
+	x = x.upper()
+
+	if len(x) == 5 or len(x) == 3 or len(x) == 1:
+		x = '0' + x
+
+	a = str_to_arr(x, 2);
+
+	# remove the first 00 if there are three bytes and it is 00
+	if len(a) == 3 and a[0] == '00':
+		a.remove(0);
+
+	# if we have two or three bytes now, and the first character is a 0, remove it
+	if len(a) >= 2 and a[0][0:1] == '0':
+		a[0] = a[0][1];
+
+	result = ''
+	for item in a:
+		result += ('.' if result != '' else '') + item
+
+
+	result = 'v' + result
+
+	return result
