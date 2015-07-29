@@ -7,6 +7,7 @@ import logging
 import platform
 import traceback
 import os
+import weakref
 
 # vedbus contains three classes:
 # VeDbusItemImport -> use this to read data from the dbus, ie import
@@ -177,6 +178,7 @@ class VeDbusItemImport(object):
 		# stored in the bus_getobjectsomewhere?
 		self._serviceName = serviceName
 		self._path = path
+		self._match = None
 		# TODO: _proxy is being used in settingsdevice.py, make a getter for that
 		self._proxy = bus.get_object(serviceName, path, introspect=False)
 		self.eventCallback = eventCallback
@@ -184,9 +186,9 @@ class VeDbusItemImport(object):
 		assert eventCallback is None or createsignal == True
 		if createsignal:
 			self._match = self._proxy.connect_to_signal(
-				"PropertiesChanged", self._properties_changed_handler)
+				"PropertiesChanged", weak_functor(self._properties_changed_handler))
 
-		# store the current value in _cachedvalue. When it doesnt exists set _cachedvalue to
+		# store the current value in _cachedvalue. When it doesn't exists set _cachedvalue to
 		# None, same as when a value is invalid
 		self._cachedvalue = None
 		try:
@@ -196,27 +198,11 @@ class VeDbusItemImport(object):
 		else:
 			self._cachedvalue = self._fixtypes(v)
 
-	# Do not create a __del__() function, since that will create a memory leak. See text from
-	# https://docs.python.org/2/library/gc.html#id2:
-	#   Objects that have __del__() methods and are part of a reference cycle cause the entire reference
-	#   cycle to be uncollectable, including objects not necessarily in the cycle but reachable only from
-	#   it. Python doesn’t collect such cycles automatically because, in general, it isn’t possible for
-	#   Python to guess a safe order in which to run the __del__() methods.
-	#
-	# At first we had self._match.remove() in the __del__() statement. But just having the __del__() state-
-	# ment created a memory leak. It was then also tried to make the reference to
-	# self._properties_changed_handler a weakRef, by using weakref.ref(self._properties_changed_handler) and
-	# weakref.proxy(self._properties_changed_handler) but that did not work:
-	#	ERROR:dbus.connection:Exception in handler for D-Bus signal:
-	#	Traceback (most recent call last):
-	#	File "/usr/lib/python2.7/site-packages/dbus/connection.py", line 230, in maybe_handle_message
-	#		self._handler(*args, **kwargs)
-	#	ReferenceError: weakly-referenced object no longer exists
-	#
-	# And after some more testing, I concluded that remove() wasn't necessary. Even after a full night
-	# of adding and removing a dbus service every 4 to 6 seconds, each of them causing some 50
-	# VeDbusItemImports (and corresponding signals) to be created and deleted again, no memory increase is
-	# seen in vrmlogger, or the dbus interface.
+	def __del__(self):
+		if self._match != None:
+			self._match.remove()
+			self._match = None
+		self._proxy = None
 
 	## Do the conversions that are necessary when getting something from the D-Bus.
 	def _fixtypes(self, value):
@@ -425,3 +411,19 @@ class VeDbusItemExport(dbus.service.Object):
 	@dbus.service.signal('com.victronenergy.BusItem', signature='a{sv}')
 	def PropertiesChanged(self, changes):
 		pass
+
+
+## This class behaves like a regular reference to a class method (eg. self.foo), but keeps a weak reference
+## to the object which method is to be called.
+## Use this object to break circular references.
+class weak_functor:
+	def __init__(self, f):
+		self._r = weakref.ref(f.__self__)
+		self._f = weakref.ref(f.__func__)
+
+	def __call__(self, *args, **kargs):
+		r = self._r()
+		f = self._f()
+		if r == None or f == None:
+			return
+		f(r, *args, **kargs)
