@@ -188,8 +188,13 @@ class DbusMonitor(object):
 
 	def _execute_value_changes(self, serviceName, objectPath, changes):
 		if self.valueChangedCallback is not None:
-			self.valueChangedCallback(serviceName, objectPath,
-				self.items[serviceName]['paths'][objectPath]['vrmDict'], changes, self.get_device_instance(serviceName))
+			# This function is called when service is idle (scheduled by handler_value_changes). The service
+			# with name 'serviceName' may have been removed after the call to handler_value_changes, so we
+			# have to check if it still exists here.
+			service = self.items.get(serviceName, None)
+			if service != None:
+				self.valueChangedCallback(serviceName, objectPath,
+					service['paths'][objectPath]['vrmDict'], changes, self.get_device_instance(serviceName))
 
 	# Gets the value for a certain servicename and path, returns the default_value when
 	# request service and objectPath combination does not not exists or when it is invalid
