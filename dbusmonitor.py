@@ -125,13 +125,12 @@ class DbusMonitor(object):
 		for s in self.dbusTree.keys():
 			if serviceName.split('.')[0:3] == s.split('.')[0:3]:
 				logger.info("Found: %s matches %s, scanning and storing items" % (serviceName, s))
-				newDeviceAdded = True
 
 				# we should never be notified to add a D-Bus service that we already have. If this assertion
 				# raises, check process_name_owner_changed, and D-Bus workings.
 				assert serviceName not in self.items
 
-				self.items[serviceName] = {}
+				service = {}
 
 				# create the empty list items.
 				whentologoptions = ['configChange', 'onIntervalAlwaysAndOnEvent', 'onIntervalOnlyWhenChanged',
@@ -139,42 +138,47 @@ class DbusMonitor(object):
 
 				# these lists will contain the VeDbusItemImport objects with that whenToLog setting. Used to
 				for whentolog in whentologoptions:
-					self.items[serviceName][whentolog] = []
+					service[whentolog] = []
 
-				self.items[serviceName]['paths'] = {}
+				service['paths'] = {}
 
-				# for vebus.ttyO1, this is workaround, since VRM Portal expects the main vebus devices at
-				# instance 0. Not sure how to fix this yet.
-				if serviceName in ['com.victronenergy.vebus.ttyO1']:
-					self.items[serviceName]['deviceInstance'] = 0
-				else:
-					self.items[serviceName]['deviceInstance'] = VeDbusItemImport(
-						self.dbusConn, serviceName, '/DeviceInstance', createsignal=False).get_value()
+				try:
+					device_instance = 0
+					# for vebus.ttyO1, this is workaround, since VRM Portal expects the main vebus devices at
+					# instance 0. Not sure how to fix this yet.
+					if serviceName != 'com.victronenergy.vebus.ttyO1':
+						device_instance = VeDbusItemImport(
+							self.dbusConn, serviceName, '/DeviceInstance', createsignal=False).get_value()
+						device_instance = 0 if device_instance is None else int(device_instance)
+					service['deviceInstance'] = device_instance
+					logger.info("       %s has device instance %s" % (serviceName, service['deviceInstance']))
 
-					# Some services do not have an instance, such as gps and settings. Set instance to 0 for those.
-					if self.items[serviceName]['deviceInstance'] is None:
-						self.items[serviceName]['deviceInstance'] = 0
+					for path, options in self.dbusTree[s].items():
+						# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
+						# options will be a dictionary: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
+
+						# check that the whenToLog setting is set to something we expect
+						assert options['whenToLog'] is None or options['whenToLog'] in whentologoptions
+
+						# create and store the VeDbusItemImport. Store it both searchable by names, and in the
+						# relevant whenToLog list.
+						o = VeDbusItemImport(self.dbusConn, serviceName, path, self.handler_value_changes)
+						if options['whenToLog']:
+							service[options['whenToLog']].append(o)
+						service['paths'][path] = {'dbusObject': o, 'vrmDict': options}
+						logger.debug("    Added %s%s" % (serviceName, path))
+
+					# Adjust self at the end of the scan, so we don't have an incomplete set of
+					# data if an exception occurs during the scan.
+					logger.debug("Finished scanning and storing items for %s" % serviceName)
+					self.items[serviceName] = service
+					newDeviceAdded = True
+				except dbus.exceptions.DBusException,e:
+					if e.get_dbus_name() == 'org.freedesktop.DBus.Error.ServiceUnknown':
+						logger.info("Service disappeared while being scanned: %s" % serviceName)
+						pass
 					else:
-						self.items[serviceName]['deviceInstance'] = int(self.items[serviceName]['deviceInstance'])
-
-				logger.info("       %s has device instance %s" % (serviceName, self.items[serviceName]['deviceInstance']))
-
-				for path, options in self.dbusTree[s].items():
-					# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
-					# options will be a dictionary: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
-
-					# check that the whenToLog setting is set to something we expect
-					assert options['whenToLog'] is None or options['whenToLog'] in whentologoptions
-
-					# create and store the VeDbusItemImport. Store it both searchable by names, and in the
-					# relevant whenToLog list.
-					o = VeDbusItemImport(self.dbusConn, serviceName, path, self.handler_value_changes)
-					if options['whenToLog']:
-						self.items[serviceName][options['whenToLog']].append(o)
-					self.items[serviceName]['paths'][path] = {'dbusObject': o, 'vrmDict': options}
-					logger.debug("    Added %s%s" % (serviceName, path))
-
-				logger.debug("Finished scanning and storing items for %s" % serviceName)
+						raise
 
 		return newDeviceAdded
 
