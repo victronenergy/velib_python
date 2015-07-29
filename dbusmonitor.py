@@ -106,8 +106,8 @@ class DbusMonitor(object):
 				self.deviceAddedCallback(name, self.get_device_instance(name))
 
 		elif name in self.items:
-			# it dissapeared, we need to remove it.
-			logger.info("%s dissapeared from the dbus. Removing it from our lists" % name)
+			# it disappeared, we need to remove it.
+			logger.info("%s disappeared from the dbus. Removing it from our lists" % name)
 			i = self.items[name]['deviceInstance']
 			del self.items[name]
 			if self.deviceRemovedCallback is not None:
