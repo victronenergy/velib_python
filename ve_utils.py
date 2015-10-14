@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from traceback import print_exc
+from os import _exit as os_exit
 
 # Use this function to make sure the code quits on an unexpected exception. Make sure to use it
 # when using gobject.idle_add and also gobject.timeout_add.
@@ -10,13 +12,15 @@ def exit_on_error(func, *args, **kwargs):
 	try:
 		return func(*args, **kwargs)
 	except:
-		from traceback import print_exc
-		print_exc()
+		try:
+			print 'exit_on_error: there was an exception. Printing stacktrace will be tryed and then exit'
+			print_exc()
+		except:
+			pass
 
 		# sys.exit() is not used, since that throws an exception, which does not lead to a program
 		# halt when used in a dbus callback, see connection.py in the Python/Dbus libraries, line 230.
-		import os
-		os._exit(1)
+		os_exit(1)
 
 
 __vrm_portal_id = None
