@@ -196,16 +196,24 @@ class DbusMonitor(object):
 				self.valueChangedCallback(serviceName, objectPath,
 					service['paths'][objectPath]['vrmDict'], changes, self.get_device_instance(serviceName))
 
+	def get_item(self, serviceName, objectPath):
+		if serviceName not in self.items:
+			return None
+
+		o = self.items[serviceName]['paths'].get(objectPath)
+		if not o:
+			return None
+
+		return o['dbusObject']
+
 	# Gets the value for a certain servicename and path, returns the default_value when
 	# request service and objectPath combination does not not exists or when it is invalid
 	def get_value(self, serviceName, objectPath, default_value=None):
-		if serviceName not in self.items:
+		item = self.get_item(serviceName, objectPath)
+		if not item:
 			return default_value
 
-		if objectPath not in self.items[serviceName]['paths']:
-			return default_value
-
-		r = self.items[serviceName]['paths'][objectPath]['dbusObject'].get_value()
+		r = item.get_value()
 		return r if r is not None else default_value
 
 	# returns a dictionary, keys are the servicenames, value the instances
