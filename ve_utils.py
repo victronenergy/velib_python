@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 from traceback import print_exc
 from os import _exit as os_exit
+from os import statvfs
+import logging
+logger = logging.getLogger(__name__)
 
 # Use this function to make sure the code quits on an unexpected exception. Make sure to use it
 # when using gobject.idle_add and also gobject.timeout_add.
@@ -75,5 +78,17 @@ def convert_vreg_version_to_readable(version):
 
 
 	result = 'v' + result
+
+	return result
+
+
+def get_free_space(path):
+	result = -1
+
+	try:
+		s = statvfs(path)
+		result = s.f_frsize * s.f_bavail     # Number of free bytes that ordinary users
+	except Exception, ex:
+		logger.info("Error while retrieving free space for path %s: %s" % (path, ex))
 
 	return result
