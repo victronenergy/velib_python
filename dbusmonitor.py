@@ -43,7 +43,7 @@ class DbusMonitor(object):
 	## Constructor
 	# TODO: Remove mountEventCallback, VrmHttpFlash should set up a listener
 	def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
-					deviceRemovedCallback=None, mountEventCallback=None):
+					deviceRemovedCallback=None, mountEventCallback=None, vebusDeviceInstance0=False):
 		# valueChangedCallback is the callback that we call when something has changed.
 		# def value_changed_on_dbus(dbusServiceName, dbusPath, options, changes, deviceInstance):
 		# in which changes is a tuple with GetText() and GetValue()
@@ -52,6 +52,7 @@ class DbusMonitor(object):
 		self.deviceRemovedCallback = deviceRemovedCallback
 		self.mountEventCallback = mountEventCallback
 		self.dbusTree = dbusTree
+		self.vebusDeviceInstance0 = vebusDeviceInstance0
 
 		# Dictionary containing all dbus items we monitor (VeDbusItemImport). It contains D-Bus servicenames,
 		# objectpaths, and the VEDbusItemImport objects and the details from the excelsheet:
@@ -143,13 +144,15 @@ class DbusMonitor(object):
 				service['paths'] = {}
 
 				try:
-					device_instance = 0
 					# for vebus.ttyO1, this is workaround, since VRM Portal expects the main vebus devices at
 					# instance 0. Not sure how to fix this yet.
-					if serviceName != 'com.victronenergy.vebus.ttyO1':
+					if serviceName == 'com.victronenergy.vebus.ttyO1' and self.vebusDeviceInstance0:
+						device_instance = 0
+					else:
 						device_instance = VeDbusItemImport(
 							self.dbusConn, serviceName, '/DeviceInstance', createsignal=False).get_value()
 						device_instance = 0 if device_instance is None else int(device_instance)
+
 					service['deviceInstance'] = device_instance
 					logger.info("       %s has device instance %s" % (serviceName, service['deviceInstance']))
 
