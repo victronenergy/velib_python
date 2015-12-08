@@ -9,7 +9,6 @@
 
 import dbus
 import pprint
-import platform
 import os
 import sys
 from dbus.mainloop.glib import DBusGMainLoop
@@ -21,7 +20,7 @@ from vedbus import VeDbusItemExport, VeDbusItemImport
 DBusGMainLoop(set_as_default=True)
 
 # Connect to the sessionbus. Note that on ccgx we use systembus instead.
-dbusConn = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
+dbusConn = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus()
 
 
 # dictionary containing the different items

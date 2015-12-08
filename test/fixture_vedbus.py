@@ -33,9 +33,8 @@ def main(argv):
 		# Have a mainloop, so we can send/receive asynchronous calls to and from dbus
 		DBusGMainLoop(set_as_default=True)
 
-		# For a PC, connect to the SessionBus
-		# For a CCGX, connect to the SystemBus
-		dbusConn = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
+		# Connect to session bus whenever present, else use the system bus
+		dbusConn = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus()
 
 		# Register ourserves on the dbus as a service
 		name = dbus.service.BusName("com.victronenergy.dbusexample", dbusConn)

@@ -7,7 +7,6 @@ from gobject import idle_add
 import dbus
 import dbus.service
 import inspect
-import platform
 import pprint
 import os
 import sys

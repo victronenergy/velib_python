@@ -21,7 +21,6 @@ from gobject import idle_add
 import dbus
 import dbus.service
 import inspect
-import platform
 import logging
 import argparse
 import pprint
@@ -71,7 +70,7 @@ class DbusMonitor(object):
 
 		# For a PC, connect to the SessionBus
 		# For a CCGX, connect to the SystemBus
-		self.dbusConn = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
+		self.dbusConn = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus()
 
 		# subscribe to NameOwnerChange for bus connect / disconnect events.
 		self.dbusConn.add_signal_receiver(self.dbus_name_owner_changed, signal_name='NameOwnerChanged')

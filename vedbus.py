@@ -4,7 +4,6 @@
 import dbus
 import dbus.service
 import logging
-import platform
 import traceback
 import os
 import weakref
@@ -67,9 +66,8 @@ class VeDbusService(object):
 		# dict containing the onchange callbacks, for each object. Object path is the key
 		self._onchangecallbacks = {}
 
-		# For a PC, connect to the SessionBus
-		# For a CCGX, connect to the SystemBus
-		self._dbusconn = dbus.SystemBus(True) if (platform.machine() == 'armv7l') else dbus.SessionBus(True)
+		# Connect to session bus whenever present, else use the system bus
+		self._dbusconn = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus()
 
 		# make the dbus connection available to outside, could make this a true property instead, but ach..
 		self.dbusconn = self._dbusconn

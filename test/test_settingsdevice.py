@@ -10,7 +10,6 @@ import sys
 import unittest
 import subprocess
 import time
-import platform
 import dbus
 import threading
 import fcntl
@@ -39,7 +38,7 @@ class CreateSettingsTest(unittest.TestCase):
 
 		# ofcourse below could be simplified, for now just use all settings from the example:
 		settings = SettingsDevice(
-			bus=dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus(),
+			bus=dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus(),
 			supportedSettings={
 				'loggingenabled': ['/Settings/' + rnd + '/Logscript/Enabled', 1, 0, 1],
 				'proxyaddress': ['/Settings/' + rnd + '/Logscript/Http/Proxy', '', 0, 0],

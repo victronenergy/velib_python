@@ -10,7 +10,6 @@ import sys
 import unittest
 import subprocess
 import time
-import platform
 import dbus
 import threading
 import fcntl
@@ -55,7 +54,7 @@ class VeDbusItemExportTests(unittest.TestCase):
 
 	def setUp(self):
 		self.sp = subprocess.Popen([sys.executable, "fixture_vedbus.py"], stdout=subprocess.PIPE)
-		self.dbusConn = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
+		self.dbusConn = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus()
 
 		#wait for fixture to be up and running
 		while (self.sp.stdout.readline().rstrip() != 'up and running'):
@@ -173,7 +172,7 @@ class VeDbusItemImportTests(unittest.TestCase):
 
 	def setUp(self):
 		self.sp = subprocess.Popen([sys.executable, "fixture_vedbus.py"], stdout=subprocess.PIPE)
-		self.dbusConn = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
+		self.dbusConn = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus()
 
 		#wait for fixture to be up and running
 		while (self.sp.stdout.readline().rstrip() != 'up and running'):
