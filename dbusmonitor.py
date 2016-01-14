@@ -176,9 +176,9 @@ class DbusMonitor(object):
 					self.items[serviceName] = service
 					newDeviceAdded = True
 				except dbus.exceptions.DBusException,e:
-					if e.get_dbus_name() == 'org.freedesktop.DBus.Error.ServiceUnknown':
+					if e.get_dbus_name() == 'org.freedesktop.DBus.Error.ServiceUnknown' or \
+						e.get_dbus_name() == 'org.freedesktop.DBus.Error.Disconnected':
 						logger.info("Service disappeared while being scanned: %s" % serviceName)
-						pass
 					else:
 						raise
 
