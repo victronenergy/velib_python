@@ -4,7 +4,8 @@ class MockDbusService(object):
     def __init__(self, servicename):
         self._dbusobjects = {}
 
-    def add_path(self, path, value, description="", writeable=False, gettextcallback=None):
+    def add_path(self, path, value, description="", writeable=False, onchangecallback=None,
+                 gettextcallback=None):
         self._dbusobjects[path] = value
 
     # Add the mandatory paths, as per victron dbus api doc
