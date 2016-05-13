@@ -1,11 +1,18 @@
+import dbus
+
+
 # Simulation a DbusMonitor object, without using the D-Bus (intended for unit tests). Instead of changes values
 # on the D-Bus you can use the set_value function. set_value will automatically expand the service list. Note
 # that all simulated D-Bus paths passed to set_value must be part of the dbusTree passed to the constructor of
 # the monitor.
 class MockDbusMonitor(object):
-    def __init__(self, dbusTree):
+    def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
+            deviceRemovedCallback=None, mountEventCallback=None, vebusDeviceInstance0=False):
         self._services = {}
         self._tree = {}
+        self._valueChangedCallback = valueChangedCallback
+        self._deviceRemovedCallback = deviceRemovedCallback
+        self._deviceAddedCallback = deviceAddedCallback
         for s, sv in dbusTree.items():
             service = self._tree.setdefault(s, set())
             service.update(['/Connected', '/ProductName', '/Mgmt/Connection', '/DeviceInstance'])
@@ -23,6 +30,9 @@ class MockDbusMonitor(object):
 
         r = self._services[serviceName][objectPath]
         return r if r is not None else default_value
+
+    def get_item(self, serviceName, objectPath):
+        return MockImportItem(self, serviceName, objectPath)
 
     # returns a dictionary, keys are the servicenames, value the instances
     # optionally use the classfilter to get only a certain type of services, for
@@ -44,9 +54,43 @@ class MockDbusMonitor(object):
             raise Exception('path not found')
         s = self._services.setdefault(service, {})
         s[path] = value
-        
+        if self._valueChangedCallback != None:
+            self._valueChangedCallback(service, path, None, None, None)
+
+    def add_service(self, service, values):
+        if service not in self._services:
+            self._services[service] = values
+            if self._deviceAddedCallback != None:
+                self._deviceAddedCallback(service, values.get('/DeviceInstance', 0))
+        else:
+            for k,v in values.items():
+                self.set_value(service, k, v)
+
     def remove_service(self, service):
+        if service not in self._services:
+            return
+        instance = self._services[service].get('/DeviceInstance', 0)
         self._services.pop(service)
+        if self._deviceRemovedCallback != None:
+            self._deviceRemovedCallback(service, instance)
+
+    @property
+    def dbusConn(self):
+        raise dbus.DBusException("No Connection")
+
+
+class MockImportItem(object):
+    def __init__(self, monitor, service, path):
+        self._monitor = monitor
+        self._service = service
+        self._path = path
+
+    def get_value(self):
+        return self._monitor.get_value(self._service, self._path)
+
+    def set_value(self, value):
+        self._monitor.set_value(self._service, self._path, value)
+
 
 def _class_name(service):
     return '.'.join(service.split('.')[:3])

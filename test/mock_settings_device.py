@@ -12,6 +12,12 @@ class MockSettingsDevice(object):
         self._settings = supported_settings
         self._event_callback = event_callback
 
+    def get_short_name(self, path):
+        for k,v in self._settings.items():
+            if v[PATH] == path:
+                return k
+        return None
+
     def __getitem__(self, setting):
         return self._settings[setting][VALUE]
 
