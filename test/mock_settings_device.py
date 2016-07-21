@@ -7,7 +7,7 @@ MAXIMUM = 3
 # Simulates the SettingsSevice object without using the D-Bus (intended for unit tests). Values passed to
 # __setitem__ (or the [] operator) will be stored in memory for later retrieval by __getitem__.
 class MockSettingsDevice(object):
-    def __init__(self, supported_settings, event_callback, name='com.victronenergy.settings'):
+    def __init__(self, supported_settings, event_callback, name='com.victronenergy.settings', timeout=0):
         self._dbus_name = name
         self._settings = supported_settings
         self._event_callback = event_callback

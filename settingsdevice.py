@@ -1,5 +1,6 @@
 import dbus
 import logging
+import time
 
 # Local imports
 from vedbus import VeDbusItemImport
@@ -28,7 +29,9 @@ class SettingsDevice(object):
 	# @param name the dbus-service-name of the settings dbus service, 'com.victronenergy.settings'
 	# @param supportedSettings dictionary with all setting-names, and their defaultvalue, min and max.
 	# @param eventCallback function that will be called on changes on any of these settings
-	def __init__(self, bus, supportedSettings, eventCallback, name='com.victronenergy.settings'):
+	# @param timeout Maximum interval to wait for localsettings. An exception is thrown at the end of the
+	# interval if the localsettings D-Bus service has not appeared yet.
+	def __init__(self, bus, supportedSettings, eventCallback, name='com.victronenergy.settings', timeout=0):
 		logging.debug("===== Settings device init starting... =====")
 		self._bus = bus
 		self._dbus_name = name
@@ -37,8 +40,15 @@ class SettingsDevice(object):
 		self._values = {} # stored the values, used to pass the old value along on a setting change
 		self._settings = {}
 
-		if 'com.victronenergy.settings' not in self._bus.list_names():
-			raise Exception("The settings service com.victronenergy.settings does not exist!")
+		count = 0
+		while True:
+			if 'com.victronenergy.settings' in self._bus.list_names():
+				break
+			if count == timeout:
+				raise Exception("The settings service com.victronenergy.settings does not exist!")
+			count += 1
+			logging.info('waiting for settings')
+			time.sleep(1)
 
 		# Add the items.
 		for setting, options in self._supportedSettings.items():
