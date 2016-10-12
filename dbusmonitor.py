@@ -40,16 +40,14 @@ items = {}
 
 class DbusMonitor(object):
 	## Constructor
-	# TODO: Remove mountEventCallback, VrmHttpFlash should set up a listener
 	def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
-					deviceRemovedCallback=None, mountEventCallback=None, vebusDeviceInstance0=False):
+					deviceRemovedCallback=None, vebusDeviceInstance0=False):
 		# valueChangedCallback is the callback that we call when something has changed.
 		# def value_changed_on_dbus(dbusServiceName, dbusPath, options, changes, deviceInstance):
 		# in which changes is a tuple with GetText() and GetValue()
 		self.valueChangedCallback = valueChangedCallback
 		self.deviceAddedCallback = deviceAddedCallback
 		self.deviceRemovedCallback = deviceRemovedCallback
-		self.mountEventCallback = mountEventCallback
 		self.dbusTree = dbusTree
 		self.vebusDeviceInstance0 = vebusDeviceInstance0
 
@@ -75,24 +73,11 @@ class DbusMonitor(object):
 		# subscribe to NameOwnerChange for bus connect / disconnect events.
 		self.dbusConn.add_signal_receiver(self.dbus_name_owner_changed, signal_name='NameOwnerChanged')
 
-		self.dbusConn.add_signal_receiver(self.dbus_mount_event, signal_name='mount')
-		self.dbusConn.add_signal_receiver(self.dbus_umount_event, signal_name='umount')
-
 		logger.info('===== Search on dbus for services that we will monitor starting... =====')
 		serviceNames = self.dbusConn.list_names()
 		for serviceName in serviceNames:
 			self.scan_dbus_service(serviceName)
 		logger.info('===== Search on dbus for services that we will monitor finished =====')
-
-	def dbus_mount_event(self, device, mountpoint):
-		logger.warning('mount event!')
-		if self.mountEventCallback is not None:
-			self.mountEventCallback('mount', device, mountpoint)
-
-	def dbus_umount_event(self, device, mountpoint):
-		logger.warning('umount event!')
-		if self.mountEventCallback is not None:
-			self.mountEventCallback('umount', device, mountpoint)
 
 	def dbus_name_owner_changed(self, name, oldowner, newowner):
 		#decouple, and process in main loop
