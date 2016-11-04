@@ -32,6 +32,12 @@ class MockDbusMonitor(object):
         return r if r is not None else default_value
 
     def get_item(self, serviceName, objectPath):
+        if serviceName not in self._services:
+            return None
+
+        if objectPath not in self._tree[_class_name(serviceName)]:
+            return None
+
         return MockImportItem(self, serviceName, objectPath)
 
     # returns a dictionary, keys are the servicenames, value the instances
@@ -45,7 +51,7 @@ class MockDbusMonitor(object):
 
         return r
 
-    def set_value(self, service, path, value):
+    def add_value(self, service, path, value):
         class_name = _class_name(service)
         s = self._tree.get(class_name, None)
         if s is None:
@@ -53,6 +59,14 @@ class MockDbusMonitor(object):
         if path not in s:
             raise Exception('path not found')
         s = self._services.setdefault(service, {})
+        s[path] = value
+
+    def set_value(self, service, path, value):
+        s = self._services.get(service)
+        if s == None:
+            raise dbus.exceptions.DBusException('org.freedesktop.DBus.Error.ServiceUnknown')
+        if path not in s:
+            raise dbus.exceptions.DBusException('org.freedesktop.DBus.Error.UnknownObject')
         s[path] = value
         if self._valueChangedCallback != None:
             self._valueChangedCallback(service, path, None, None, None)
@@ -64,7 +78,7 @@ class MockDbusMonitor(object):
                 self._deviceAddedCallback(service, values.get('/DeviceInstance', 0))
         else:
             for k,v in values.items():
-                self.set_value(service, k, v)
+                self.add_value(service, k, v)
 
     def remove_service(self, service):
         if service not in self._services:
