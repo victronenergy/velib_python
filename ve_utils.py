@@ -92,3 +92,12 @@ def get_free_space(path):
 		logger.info("Error while retrieving free space for path %s: %s" % (path, ex))
 
 	return result
+
+def get_load_averages():
+	try:
+		with open('/proc/loadavg', 'r') as f:
+			line = f.read()
+	except Exception, ex:
+		logger.info("Error while reading & processing load average: %s" % ex)
+
+	return line.split()[:3]
