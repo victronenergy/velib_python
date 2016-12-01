@@ -93,11 +93,31 @@ def get_free_space(path):
 
 	return result
 
-def get_load_averages():
-	try:
-		with open('/proc/loadavg', 'r') as f:
-			line = f.read()
-	except Exception, ex:
-		logger.info("Error while reading & processing load average: %s" % ex)
 
-	return line.split()[:3]
+def get_load_averages():
+	c = read_file('/proc/loadavg')
+	return c.split(' ')[:3]
+
+
+# Returns False if it cannot find a machine name. Otherwise returns the string
+# containing the name
+def get_machine_name():
+	c = read_file('/proc/device-tree/model')
+
+	if c != False:
+		return c.strip('\x00')
+
+	return read_file('/etc/venus/machine')
+
+
+# Returns False if it cannot open the file. Otherwise returns its rstripped contents
+def read_file(path):
+	content = False
+
+	try:
+		with open(path, 'r') as f:
+			content = f.read().rstrip()
+	except Exception, ex:
+		logger.info("Error while reading %s: %s" % (path, ex))
+
+	return content
