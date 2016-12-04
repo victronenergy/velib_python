@@ -32,7 +32,7 @@ class DbusTracker(object):
 			if name.startswith(":"):
 				continue
 
-			items[self.dbusConn.get_name_owner(name)] = {"_total": 0, "_name": name}
+			items[str(self.dbusConn.get_name_owner(name))] = {"_total": 0, "_name": str(name)}
 
 
 	def _signal_receive_handler(*args, **kwargs):
