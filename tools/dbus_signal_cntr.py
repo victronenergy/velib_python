@@ -64,6 +64,8 @@ def printall():
 
 	row_format = "{:<60} {:>4}  {:>4}%  {:>4.2f} / s"
 
+	print row_format.format("Total", total, 100, total / t_elapsed)
+
 	for service, values in items.iteritems():
 		# skip the services that didn't emit any signals
 		if len(values) == 2 and "_name" in values:
