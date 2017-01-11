@@ -203,6 +203,15 @@ class DbusMonitor(object):
 		r = item.get_value()
 		return r if r is not None else default_value
 
+	# Sets the value for a certain servicename and path, returns the return value of the D-Bus SetValue
+	# method. If the underlying item does not exist (the service does not exist, or the objectPath was not
+	# registered) the function will return -1
+	def set_value(self, serviceName, objectPath, value):
+		item = self.get_item(serviceName, objectPath)
+		if item is None:
+			return -1
+		return item.set_value(value)
+
 	# returns a dictionary, keys are the servicenames, value the instances
 	# optionally use the classfilter to get only a certain type of services, for
 	# example com.victronenergy.battery.
