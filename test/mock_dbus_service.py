@@ -3,10 +3,13 @@
 class MockDbusService(object):
     def __init__(self, servicename):
         self._dbusobjects = {}
+        self._callbacks = {}
 
     def add_path(self, path, value, description="", writeable=False, onchangecallback=None,
                  gettextcallback=None):
         self._dbusobjects[path] = value
+        if onchangecallback is not None:
+            self._callbacks[path] = onchangecallback
 
     # Add the mandatory paths, as per victron dbus api doc
     def add_mandatory_paths(self, processname, processversion, connection,
@@ -22,6 +25,13 @@ class MockDbusService(object):
         self.add_path('/FirmwareVersion', firmwareversion)
         self.add_path('/HardwareVersion', hardwareversion)
         self.add_path('/Connected', connected)
+
+    # Simulates a SetValue from the D-Bus, if avaible the onchangecallback associated with the path will
+    # be called before the data is changed.
+    def set_value(self, path, newvalue):
+        callback = self._callbacks.get(path)
+        if callback is None or callback(path, newvalue):
+            self._dbusobjects[path] = newvalue
 
     def __getitem__(self, path):
         return self._dbusobjects[path]
