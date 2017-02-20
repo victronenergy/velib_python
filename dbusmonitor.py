@@ -80,6 +80,9 @@ class DbusMonitor(object):
 		logger.info('===== Search on dbus for services that we will monitor finished =====')
 
 	def dbus_name_owner_changed(self, name, oldowner, newowner):
+		if not name.startswith("com.victronenergy."):
+			return
+
 		#decouple, and process in main loop
 		idle_add(exit_on_error, self._process_name_owner_changed, name, oldowner, newowner)
 
