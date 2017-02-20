@@ -29,7 +29,7 @@ import os
 
 # our own packages
 from vedbus import VeDbusItemExport, VeDbusItemImport
-from ve_utils import exit_on_error
+from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -51,20 +51,12 @@ class DbusMonitor(object):
 		self.dbusTree = dbusTree
 		self.vebusDeviceInstance0 = vebusDeviceInstance0
 
-		# Dictionary containing all dbus items we monitor (VeDbusItemImport). It contains D-Bus servicenames,
-		# objectpaths, and the VEDbusItemImport objects and the details from the excelsheet:
-		# {'com.victronenergy.vebus.ttyO1': {'AcSensor/0/Energy': {
-		#                                        'dbusObject': <vedbus.VeDbusItemImport object at 0xa3d406c>,
-		#                                        'vrmDict': {'code': 'hoi', 'whenToLog': 'sometimes'}
-		#                                        },
-		#                                    '/AcSensor/0/Power': {
-		#                                        'dbusObject': <vedbus.VeDbusItemImport object at 0xa3d450c>,
-		#                                        'vrmDict': {'code': 'bg', 'whenToLog': 'always'}
-		#                                        }
-		#                                   },
-		# {'com.victronenergy.battery.socketcan': {'etc. etc. }
-		# }
-		self.items = {}
+		# Lists all tracked services. Stores name, id, device instance, value per path, and whenToLog info
+		# indexed by service name (eg. com.victronenergy.settings).
+		self.servicesByName = {}
+
+		# Same values as self.servicesByName, but indexed by service id (eg. :1.30)
+		self.servicesById = {}
 
 		# For a PC, connect to the SessionBus
 		# For a CCGX, connect to the SystemBus
@@ -93,13 +85,15 @@ class DbusMonitor(object):
 			if newdeviceadded and self.deviceAddedCallback is not None:
 				self.deviceAddedCallback(name, self.get_device_instance(name))
 
-		elif name in self.items:
+		elif name in self.servicesByName:
 			# it disappeared, we need to remove it.
 			logger.info("%s disappeared from the dbus. Removing it from our lists" % name)
-			i = self.items[name]['deviceInstance']
-			del self.items[name]
+			service = self.servicesByName[name]
+			deviceInstance = service['deviceInstance']
+			del self.servicesById[service['id']]
+			del self.servicesByName[name]
 			if self.deviceRemovedCallback is not None:
-				self.deviceRemovedCallback(name, i)
+				self.deviceRemovedCallback(name, deviceInstance)
 
 	# Scans the given dbus service to see if it contains anything interesting for us. If it does, add
 	# it to our list of monitored D-Bus services.
@@ -109,7 +103,7 @@ class DbusMonitor(object):
 		serviceName = str(serviceName)
 
 		paths = self.dbusTree.get('.'.join(serviceName.split('.')[0:3]), None)
-		if not paths:
+		if paths is None:
 			logger.debug("Ignoring service %s, not in the tree" % serviceName)
 			return False
 
@@ -117,9 +111,9 @@ class DbusMonitor(object):
 
 		# we should never be notified to add a D-Bus service that we already have. If this assertion
 		# raises, check process_name_owner_changed, and D-Bus workings.
-		assert serviceName not in self.items
+		assert serviceName not in self.servicesByName
 
-		service = {}
+		service = {'name': serviceName, 'paths': {}}
 
 		# create the empty list items.
 		whentologoptions = ['configChange', 'onIntervalAlwaysAndOnEvent', 'onIntervalOnlyWhenChanged',
@@ -129,7 +123,10 @@ class DbusMonitor(object):
 		for whentolog in whentologoptions:
 			service[whentolog] = []
 
-		service['paths'] = {}
+		serviceId = self.dbusConn.get_name_owner(serviceName)
+		service['id'] = serviceId
+
+		assert serviceId not in self.servicesById
 
 		try:
 			# for vebus.ttyO1, this is workaround, since VRM Portal expects the main vebus devices at
@@ -137,9 +134,11 @@ class DbusMonitor(object):
 			if serviceName == 'com.victronenergy.vebus.ttyO1' and self.vebusDeviceInstance0:
 				device_instance = 0
 			else:
-				device_instance = VeDbusItemImport(
-					self.dbusConn, serviceName, '/DeviceInstance', createsignal=False).get_value()
-				device_instance = 0 if device_instance is None else int(device_instance)
+				try:
+					device_instance = self.dbusConn.call_blocking(serviceName, '/DeviceInstance', None, 'GetValue', '', [])
+					device_instance = 0 if device_instance is None else int(device_instance)
+				except dbus.exceptions.DBusException as e:
+					device_instance = 0
 
 			service['deviceInstance'] = device_instance
 			logger.info("       %s has device instance %s" % (serviceName, service['deviceInstance']))
@@ -151,20 +150,35 @@ class DbusMonitor(object):
 				# check that the whenToLog setting is set to something we expect
 				assert options['whenToLog'] is None or options['whenToLog'] in whentologoptions
 
-				# create and store the VeDbusItemImport. Store it both searchable by names, and in the
-				# relevant whenToLog list.
-				o = VeDbusItemImport(self.dbusConn, serviceName, path, self.handler_value_changes)
+				try:
+					value = self.dbusConn.call_blocking(serviceName, path, None, 'GetValue', '', [])
+				except dbus.exceptions.DBusException as e:
+					if e.get_dbus_name() == 'org.freedesktop.DBus.Error.ServiceUnknown' or \
+						e.get_dbus_name() == 'org.freedesktop.DBus.Error.Disconnected':
+						raise  # These exception will be handled below
+					# TODO: Look into this, perhaps filter more specifically on this error:
+					# org.freedesktop.DBus.Error.UnknownMethod
+					logger.debug("%s %s does not exist (yet)" % (serviceName, path))
+					value = None
+				service['paths'][path] = [unwrap_dbus_value(value), options]
+
 				if options['whenToLog']:
-					service[options['whenToLog']].append(o)
-				service['paths'][path] = {'dbusObject': o, 'vrmDict': options}
+					service[options['whenToLog']].append(path)
+
 				logger.debug("    Added %s%s" % (serviceName, path))
+
+			service['match'] = self.dbusConn.add_signal_receiver(self.handler_value_changes,
+				dbus_interface='com.victronenergy.BusItem', signal_name='PropertiesChanged', path_keyword='path',
+				sender_keyword='senderId', bus_name=serviceName)
+
+			logger.debug("Finished scanning and storing items for %s" % serviceName)
 
 			# Adjust self at the end of the scan, so we don't have an incomplete set of
 			# data if an exception occurs during the scan.
-			logger.debug("Finished scanning and storing items for %s" % serviceName)
-			self.items[serviceName] = service
+			self.servicesByName[serviceName] = service
+			self.servicesById[serviceId] = service
 
-		except dbus.exceptions.DBusException,e:
+		except dbus.exceptions.DBusException as e:
 			if e.get_dbus_name() == 'org.freedesktop.DBus.Error.ServiceUnknown' or \
 				e.get_dbus_name() == 'org.freedesktop.DBus.Error.Disconnected':
 				logger.info("Service disappeared while being scanned: %s" % serviceName)
@@ -174,48 +188,72 @@ class DbusMonitor(object):
 
 		return True
 
-	def handler_value_changes(self, serviceName, objectPath, changes):
-		# decouple, and process update in the mainloop
-		idle_add(exit_on_error, self._execute_value_changes, serviceName, objectPath, changes)
+	def handler_value_changes(self, changes, path, senderId):
+		try:
+			service = self.servicesById[senderId]
+			a = service['paths'][path]
+		except KeyError:
+			# Either senderId or path isn't there, which means
+			# it hasn't been scanned yet.
+			return
 
-	def _execute_value_changes(self, serviceName, objectPath, changes):
+		# First update our store to the new value
+		a[0] = unwrap_dbus_value(changes['Value'])
+
+		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
-			# This function is called when service is idle (scheduled by handler_value_changes). The service
-			# with name 'serviceName' may have been removed after the call to handler_value_changes, so we
-			# have to check if it still exists here.
-			service = self.items.get(serviceName, None)
-			if service != None:
-				self.valueChangedCallback(serviceName, objectPath,
-					service['paths'][objectPath]['vrmDict'], changes, self.get_device_instance(serviceName))
+			idle_add(exit_on_error, self._execute_value_changes, service['name'], path, changes, a[1])
 
-	def get_item(self, serviceName, objectPath):
-		if serviceName not in self.items:
-			return None
+	def _execute_value_changes(self, serviceName, objectPath, changes, options):
+		# double check that the service still exists, as it might have
+		# disappeared between scheduling-for and executing this function.
+		if serviceName not in self.servicesByName:
+			return
 
-		o = self.items[serviceName]['paths'].get(objectPath)
-		if not o:
-			return None
+		self.valueChangedCallback(serviceName, objectPath,
+			options, changes, self.get_device_instance(serviceName))
 
-		return o['dbusObject']
-
-	# Gets the value for a certain servicename and path, returns the default_value when
-	# request service and objectPath combination does not not exists or when it is invalid
+	# Gets the value for a certain servicename and path
+	# returns the default_value when either the requested service and objectPath combination does not exist,
+	# or when its value is INVALID
 	def get_value(self, serviceName, objectPath, default_value=None):
-		item = self.get_item(serviceName, objectPath)
-		if not item:
+		service = self.servicesByName.get(serviceName, None)
+		if service is None:
 			return default_value
 
-		r = item.get_value()
-		return r if r is not None else default_value
+		value = service['paths'].get(objectPath, None)
+		if value is None:
+			return default_value
+
+		return value[0]
+
+	def exists(self, serviceName, objectPath):
+		try:
+			# @todo EV There must be a better way of doing this. Maybe just say an item exists whenever we
+			# receive a PropertiesChanged or a previous GetValue call succeeded. Problem with this solution
+			# is that we won't notice if a path is removed from the service.
+			self.dbusConn.call_blocking(serviceName, objectPath, None, 'GetValue', '', [])
+			return True
+		except dbus.exceptions.DBusException as e:
+			return False
 
 	# Sets the value for a certain servicename and path, returns the return value of the D-Bus SetValue
 	# method. If the underlying item does not exist (the service does not exist, or the objectPath was not
 	# registered) the function will return -1
 	def set_value(self, serviceName, objectPath, value):
-		item = self.get_item(serviceName, objectPath)
-		if item is None:
+		# Check if the D-Bus object referenced by serviceName and objectPath is registered. There is no
+		# necessity to do this, but it is in line with previous implementations which kept VeDbusItemImport
+		# objects for registers items only.
+		service = self.servicesByName.get(serviceName, None)
+		if service is None:
 			return -1
-		return item.set_value(value)
+		if objectPath not in service['paths']:
+			return -1
+		# We do not catch D-Bus exceptions here, because the previous implementation did not do that either.
+		return self.dbusConn.call_blocking(serviceName, objectPath,
+		                                   dbus_interface='com.victronenergy.BusItem',
+		                                   method='SetValue', signature=None,
+		                                   args=[wrap_dbus_value(value)])
 
 	# returns a dictionary, keys are the servicenames, value the instances
 	# optionally use the classfilter to get only a certain type of services, for
@@ -225,14 +263,14 @@ class DbusMonitor(object):
 		if classfilter is not None:
 			class_as_list = classfilter.split('.')[0:3]
 
-		for servicename in self.items.keys():
-			if not classfilter or servicename.split('.')[0:3] == class_as_list:
+		for servicename in self.servicesByName:
+			if classfilter is None or servicename.split('.')[0:3] == class_as_list:
 				r[servicename] = self.get_device_instance(servicename)
 
 		return r
 
 	def get_device_instance(self, serviceName):
-		return self.items[serviceName]['deviceInstance']
+		return self.servicesByName[serviceName]['deviceInstance']
 
 	# Parameter categoryfilter is to be a list, containing the categories you want (configChange,
 	# onIntervalAlways, etc).
@@ -242,8 +280,7 @@ class DbusMonitor(object):
 
 		result = {}
 
-		# loop through the D-Bus service that we now
-		for serviceName in self.items.keys():
+		for serviceName in self.servicesByName:
 			result.update(self.get_values_for_service(categoryfilter, serviceName, converter))
 
 		return result
@@ -253,19 +290,23 @@ class DbusMonitor(object):
 		deviceInstance = self.get_device_instance(servicename)
 		result = {}
 
-		serviceDict = self.items[servicename]
+		service = self.servicesByName[servicename]
+
 		for category in categoryfilter:
 
-			for d in serviceDict[category]:
-				if d.get_value() is not None:
-					code = serviceDict['paths'][d.path]['vrmDict']['code']
-					value = d.get_value() if not converter else converter.convert(code, d.get_value())
+			for path in service[category]:
 
-					precision = serviceDict['paths'][d.path]['vrmDict'].get('precision')
+				value, options = service['paths'][path]
+
+				if value is not None:
+
+					value = value if converter is None else converter.convert(options['code'], value)
+
+					precision = options.get('precision')
 					if precision:
 						value = round(value, precision)
 
-					result[code + "[" + str(deviceInstance) + "]"] = value
+					result[options['code'] + "[" + str(deviceInstance) + "]"] = value
 
 		return result
 

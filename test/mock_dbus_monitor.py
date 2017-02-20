@@ -22,13 +22,13 @@ class MockDbusMonitor(object):
     # Gets the value for a certain servicename and path, returns the default_value when
     # request service and objectPath combination does not not exists or when it is invalid
     def get_value(self, serviceName, objectPath, default_value=None):
-        item = self.get_item(serviceName, objectPath)
+        item = self._get_item(serviceName, objectPath)
         if item is None:
             return default_value
         r = item.get_value()
         return default_value if r is None else r
 
-    def get_item(self, serviceName, objectPath):
+    def _get_item(self, serviceName, objectPath):
         service = self._services.get(serviceName)
         if service is None:
             return None
@@ -39,6 +39,13 @@ class MockDbusMonitor(object):
             item = MockImportItem(None, valid=False)
             service[objectPath] = item
         return item
+
+    def exists(self, serviceName, objectPath):
+        if serviceName not in self._services:
+            return False
+        if objectPath not in self._tree[_class_name(serviceName)]:
+            return False
+        return True
 
     # returns a dictionary, keys are the servicenames, value the instances
     # optionally use the classfilter to get only a certain type of services, for
@@ -62,7 +69,7 @@ class MockDbusMonitor(object):
         s[path] = MockImportItem(value)
 
     def set_value(self, serviceName, objectPath, value):
-        item = self.get_item(serviceName, objectPath)
+        item = self._get_item(serviceName, objectPath)
         if item is None:
             return -1
         item.set_value(value)
