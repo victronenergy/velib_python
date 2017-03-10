@@ -4,6 +4,7 @@ class MockDbusService(object):
     def __init__(self, servicename):
         self._dbusobjects = {}
         self._callbacks = {}
+        self._service_name = servicename
 
     def add_path(self, path, value, description="", writeable=False, onchangecallback=None,
                  gettextcallback=None):
@@ -37,6 +38,9 @@ class MockDbusService(object):
         return self._dbusobjects[path]
 
     def __setitem__(self, path, newvalue):
+        if path not in self._dbusobjects:
+            raise Exception('Path not registered in service: {}{} (use add_path to register)'.\
+                format(self._service_name, path))
         self._dbusobjects[path] = newvalue
 
     def __delitem__(self, path):
