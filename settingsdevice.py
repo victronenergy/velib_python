@@ -10,6 +10,7 @@ PATH = 0
 VALUE = 1
 MINIMUM = 2
 MAXIMUM = 3
+SILENT = 4
 
 ## The Settings Device class.
 # Used by python programs, such as the vrm-logger, to read and write settings they
@@ -27,7 +28,9 @@ class SettingsDevice(object):
 	## The constructor processes the tree of dbus-items.
 	# @param bus the system-dbus object
 	# @param name the dbus-service-name of the settings dbus service, 'com.victronenergy.settings'
-	# @param supportedSettings dictionary with all setting-names, and their defaultvalue, min and max.
+	# @param supportedSettings dictionary with all setting-names, and their defaultvalue, min, max and whether
+	# the setting is silent. The 'silent' entry is optional. If set to true, no changes in the setting will
+	# be logged by localsettings.
 	# @param eventCallback function that will be called on changes on any of these settings
 	# @param timeout Maximum interval to wait for localsettings. An exception is thrown at the end of the
 	# interval if the localsettings D-Bus service has not appeared yet.
@@ -53,10 +56,11 @@ class SettingsDevice(object):
 		# Add the items.
 		for setting, options in self._supportedSettings.items():
 			busitem = VeDbusItemImport(self._bus, self._dbus_name, options[PATH], self.handleChangedSetting)
-			if busitem.exists:
+			silent = len(options) > SILENT and options[SILENT]
+			if busitem.exists and busitem._proxy.GetSilent() == silent:
 				logging.debug("Setting %s found" % options[PATH])
 			else:
-				logging.info("Setting %s does not exist yet, adding it" % options[PATH])
+				logging.info("Setting %s does not exist yet or must be adjusted" % options[PATH])
 
 				# Prepare to add the setting.
 				path = options[PATH].replace('/Settings/', '', 1)
@@ -67,13 +71,17 @@ class SettingsDevice(object):
 					itemType = 'f'
 				else:
 					itemType = 's'
-				
+
 				# Add the setting
 				# TODO, make an object that inherits VeDbusItemImport, and complete the D-Bus settingsitem interface
-				VeDbusItemImport(self._bus, self._dbus_name, '/Settings', createsignal=False)._proxy.AddSetting('', path, value, itemType, options[MINIMUM], options[MAXIMUM])
+				settings_item = VeDbusItemImport(self._bus, self._dbus_name, '/Settings', createsignal=False)
+				if silent:
+					settings_item._proxy.AddSilentSetting('', path, value, itemType, options[MINIMUM], options[MAXIMUM])
+				else:
+					settings_item._proxy.AddSetting('', path, value, itemType, options[MINIMUM], options[MAXIMUM])
 
 				busitem = VeDbusItemImport(self._bus, self._dbus_name, options[PATH], self.handleChangedSetting)
-			
+
 			self._settings[setting] = busitem
 			self._values[setting] = busitem.get_value()
 
