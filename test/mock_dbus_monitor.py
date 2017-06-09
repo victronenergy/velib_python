@@ -108,6 +108,10 @@ class MockImportItem(object):
     def get_value(self):
         return self._value
 
+    @property
+    def exists(self):
+        return self._valid
+
     def set_value(self, value):
         if not self._service_exists:
             raise dbus.exceptions.DBusException('org.freedesktop.DBus.Error.ServiceUnknown')
