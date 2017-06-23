@@ -38,6 +38,14 @@ logger.setLevel(logging.INFO)
 
 items = {}
 
+class SystemBus(dbus.bus.BusConnection):
+	def __new__(cls):
+		return dbus.bus.BusConnection.__new__(cls, dbus.bus.BusConnection.TYPE_SYSTEM)
+
+class SessionBus(dbus.bus.BusConnection):
+	def __new__(cls):
+		return dbus.bus.BusConnection.__new__(cls, dbus.bus.BusConnection.TYPE_SESSION)
+
 class DbusMonitor(object):
 	## Constructor
 	def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
@@ -60,10 +68,13 @@ class DbusMonitor(object):
 
 		# For a PC, connect to the SessionBus
 		# For a CCGX, connect to the SystemBus
-		self.dbusConn = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus()
+		self.dbusConn = SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else SystemBus()
 
 		# subscribe to NameOwnerChange for bus connect / disconnect events.
-		self.dbusConn.add_signal_receiver(self.dbus_name_owner_changed, signal_name='NameOwnerChanged')
+		(dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ \
+			else dbus.SystemBus()).add_signal_receiver(
+			self.dbus_name_owner_changed,
+			signal_name='NameOwnerChanged')
 
 		# Subscribe to PropertiesChanged for all services
 		self.dbusConn.add_signal_receiver(self.handler_value_changes,
