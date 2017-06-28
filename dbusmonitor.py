@@ -65,6 +65,12 @@ class DbusMonitor(object):
 		# subscribe to NameOwnerChange for bus connect / disconnect events.
 		self.dbusConn.add_signal_receiver(self.dbus_name_owner_changed, signal_name='NameOwnerChanged')
 
+		# Subscribe to PropertiesChanged for all services
+		self.dbusConn.add_signal_receiver(self.handler_value_changes,
+			dbus_interface='com.victronenergy.BusItem',
+			signal_name='PropertiesChanged', path_keyword='path',
+			sender_keyword='senderId')
+
 		logger.info('===== Search on dbus for services that we will monitor starting... =====')
 		serviceNames = self.dbusConn.list_names()
 		for serviceName in serviceNames:
@@ -166,10 +172,6 @@ class DbusMonitor(object):
 					service[options['whenToLog']].append(path)
 
 				logger.debug("    Added %s%s" % (serviceName, path))
-
-			service['match'] = self.dbusConn.add_signal_receiver(self.handler_value_changes,
-				dbus_interface='com.victronenergy.BusItem', signal_name='PropertiesChanged', path_keyword='path',
-				sender_keyword='senderId', bus_name=serviceName)
 
 			logger.debug("Finished scanning and storing items for %s" % serviceName)
 
