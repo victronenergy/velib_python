@@ -146,7 +146,7 @@ class VeDbusItemExportTests(unittest.TestCase):
 			except IOError:
 				break
 
-		a = "-> dest=(null destination) serial=4 path=/Gettextcallback; interface=com.victronenergy.BusItem; member=PropertiesChanged\n"
+		a = "=(null destination) serial=4 path=/Gettextcallback; interface=com.victronenergy.BusItem; member=PropertiesChanged\n"
 		a += "   array [\n"
 		a += "      dict entry(\n"
 		a += "         string \"Text\"\n"

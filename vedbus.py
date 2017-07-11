@@ -6,6 +6,7 @@ import logging
 import traceback
 import os
 import weakref
+from ve_utils import wrap_dbus_value, unwrap_dbus_value
 
 # vedbus contains three classes:
 # VeDbusItemImport -> use this to read data from the dbus, ie import
@@ -54,8 +55,6 @@ import weakref
 
 #   The signature of a variant is 'v'.
 
-VEDBUS_INVALID = dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
-
 # Export ourselves as a D-Bus service.
 class VeDbusService(object):
 	def __init__(self, servicename):
@@ -88,8 +87,8 @@ class VeDbusService(object):
 			px += '/'
 		for p, item in self._dbusobjects.items():
 			if p.startswith(px):
-				v = item.GetText() if get_text else item.local_get_value()
-				r[p[len(px):]] = VEDBUS_INVALID if v is None else v
+				v = item.GetText() if get_text else wrap_dbus_value(item.local_get_value())
+				r[p[len(px):]] = v
 		logging.debug(r)
 		return r
 
@@ -231,7 +230,7 @@ class VeDbusItemImport(object):
 		except dbus.exceptions.DBusException:
 			pass
 		else:
-			self._cachedvalue = self._fixtypes(v)
+			self._cachedvalue = unwrap_dbus_value(v)
 
 	def __del__(self):
 		if self._match != None:
@@ -239,20 +238,8 @@ class VeDbusItemImport(object):
 			self._match = None
 		self._proxy = None
 
-	## Do the conversions that are necessary when getting something from the D-Bus.
-	def _fixtypes(self, value):
-		# For some reason, str(dbus.Byte(84)) == 'T'. Bytes on the dbus are not meant to be a char.
-		# so, fix that.
-		if type(value) == dbus.Byte:
-			value = int(value)
-
-		if value == VEDBUS_INVALID:
-			value = None
-
-		return value
-
 	def _refreshcachedvalue(self):
-		self._cachedvalue = self._fixtypes(self._proxy.GetValue())
+		self._cachedvalue = unwrap_dbus_value(self._proxy.GetValue())
 
 	## Returns the path as a string, for example '/AC/L1/V'
 	@property
@@ -273,7 +260,7 @@ class VeDbusItemImport(object):
 
 	## Writes a new value to the dbus-item
 	def set_value(self, newvalue):
-		r = self._proxy.SetValue(newvalue if newvalue is not None else VEDBUS_INVALID)
+		r = self._proxy.SetValue(wrap_dbus_value(newvalue))
 
 		# instead of just saving the value, go to the dbus and get it. So we have the right type etc.
 		if r == 0:
@@ -317,7 +304,7 @@ class VeDbusItemImport(object):
 	# Stores the new value in our local cache, and calls the eventCallback, if set.
 	def _properties_changed_handler(self, changes):
 		if "Value" in changes:
-			changes['Value'] = self._fixtypes(changes['Value'])
+			changes['Value'] = unwrap_dbus_value(changes['Value'])
 			self._cachedvalue = changes['Value']
 			if self._eventCallback:
 				# The reason behind this try/except is to prevent errors silently ending up the an error
@@ -414,7 +401,7 @@ class VeDbusItemExport(dbus.service.Object):
 		self._value = newvalue
 
 		changes = {}
-		changes['Value'] = newvalue if newvalue is not None else VEDBUS_INVALID
+		changes['Value'] = wrap_dbus_value(newvalue)
 		changes['Text'] = self.GetText()
 		self.PropertiesChanged(changes)
 
@@ -433,8 +420,7 @@ class VeDbusItemExport(dbus.service.Object):
 		if not self._writeable:
 			return 1  # NOT OK
 
-		if newvalue is VEDBUS_INVALID:
-			newvalue = None
+		newvalue = unwrap_dbus_value(newvalue)
 
 		if newvalue == self._value:
 			return 0  # OK
@@ -463,7 +449,7 @@ class VeDbusItemExport(dbus.service.Object):
 	# @return the value when valid, and otherwise an empty array
 	@dbus.service.method('com.victronenergy.BusItem', out_signature='v')
 	def GetValue(self):
-		return self._value if self._value is not None else VEDBUS_INVALID
+		return wrap_dbus_value(self._value)
 
 	## Dbus exported method GetText
 	# Returns the value as string of the dbus-object-path.
@@ -473,7 +459,9 @@ class VeDbusItemExport(dbus.service.Object):
 		if self._value is None:
 			return '---'
 
-		# See VeDbusItemImport._fixtypes for why we int() an dbus.Byte
+		# Default conversion from dbus.Byte will get you a character (so 'T' instead of '84'), so we
+		# have to convert to int first. Note that if a dbus.Byte turns up here, it must have come from
+		# the application itself, as all data from the D-Bus should have been unwrapped by now.
 		if self._gettextcallback is None and type(self._value) == dbus.Byte:
 			return str(int(self._value))
 
