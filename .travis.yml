@@ -6,6 +6,7 @@ python:
 before_install:
   - sudo apt-get update
   - sudo apt-get install python-gobject-2
+  - sudo apt-get install dbus-x11
 
 script:
   - eval `dbus-launch --sh-syntax` && cd test && python test_vedbus.py -v
