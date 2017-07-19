@@ -206,6 +206,10 @@ class DbusMonitor(object):
 			# it hasn't been scanned yet.
 			return
 
+		# If this properyChange does not involve a value, our work is done.
+		if 'Value' not in changes:
+			return
+
 		# First update our store to the new value
 		a[0] = unwrap_dbus_value(changes['Value'])
 
