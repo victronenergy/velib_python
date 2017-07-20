@@ -211,7 +211,11 @@ class DbusMonitor(object):
 			return
 
 		# First update our store to the new value
-		a[0] = unwrap_dbus_value(changes['Value'])
+		new = unwrap_dbus_value(changes['Value'])
+		if a[0] == new:
+			return
+
+		a[0] = new
 
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
