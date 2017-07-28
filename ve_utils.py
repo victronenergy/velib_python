@@ -121,7 +121,7 @@ def read_file(path):
 		with open(path, 'r') as f:
 			content = f.read().rstrip()
 	except Exception, ex:
-		logger.info("Error while reading %s: %s" % (path, ex))
+		logger.debug("Error while reading %s: %s" % (path, ex))
 
 	return content
 
