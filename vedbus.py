@@ -57,7 +57,7 @@ from ve_utils import wrap_dbus_value, unwrap_dbus_value
 
 # Export ourselves as a D-Bus service.
 class VeDbusService(object):
-	def __init__(self, servicename):
+	def __init__(self, servicename, bus=None):
 		# dict containing the VeDbusItemExport objects, with their path as the key.
 		self._dbusobjects = {}
 		self._dbusnodes = {}
@@ -66,7 +66,7 @@ class VeDbusService(object):
 		self._onchangecallbacks = {}
 
 		# Connect to session bus whenever present, else use the system bus
-		self._dbusconn = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus()
+		self._dbusconn = bus or (dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus())
 
 		# make the dbus connection available to outside, could make this a true property instead, but ach..
 		self.dbusconn = self._dbusconn
