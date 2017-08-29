@@ -1,15 +1,10 @@
+import fcntl
 import gobject
 import logging
 import os
 import requests
-import sys
 import subprocess
 import traceback
-import fcntl
-
-# Victron packages
-AppDir = os.path.dirname(os.path.realpath(__file__))
-sys.path.insert(1, os.path.join(AppDir, 'ext', 'velib_python'))
 from ve_utils import exit_on_error
 
 VrmApiServer = 'https://ccgxlogging.victronenergy.com'
