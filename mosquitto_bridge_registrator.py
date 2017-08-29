@@ -13,7 +13,7 @@ sys.path.insert(1, os.path.join(AppDir, 'ext', 'velib_python'))
 from ve_utils import exit_on_error
 
 VrmApiServer = 'https://ccgxlogging.victronenergy.com'
-CaBundlePath = os.path.join(AppDir, 'venus-ca.crt')
+CaBundlePath = "/etc/ssl/certs/ccgx-ca.pem"
 VrmBroker = 'mqtt.victronenergy.com'
 SettingsPath = os.environ.get('DBUS_MQTT_PATH') or '/data/conf/mosquitto.d'
 BridgeConfigPath = os.path.join(SettingsPath, 'vrm_bridge.conf')
