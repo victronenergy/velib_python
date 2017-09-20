@@ -115,7 +115,6 @@ class MosquittoBridgeRegistrator(object):
 						headers=headers,
 						verify=CaBundlePath,
 						timeout=(timeout,timeout))
-					logging.info('[InitBroker] Registration successful')
 					if r.status_code == requests.codes.ok:
 						config = BridgeSettings.format(self._system_id, password, self._client_id, VrmBroker,
 							CaBundlePath, identifier)
@@ -130,9 +129,11 @@ class MosquittoBridgeRegistrator(object):
 							self._restart_broker()
 						self._init_broker_timer = None
 						logging.getLogger("requests").setLevel(self._requests_log_level)
+						logging.info('[InitBroker] Registration successful')
 						return False
-					logging.error('VRM registration failed. Http status was: {}'.format(r.status_code))
-					logging.error('Message was: {}'.format(r.text))
+					if not quiet:
+						logging.error('VRM registration failed. Http status was: {}'.format(r.status_code))
+						logging.error('Message was: {}'.format(r.text))
 		except:
 			if not quiet:
 				traceback.print_exc()
