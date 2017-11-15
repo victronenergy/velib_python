@@ -111,6 +111,10 @@ class datetime(object):
 	def now():
 		return timer_manager.datetime
 
+	@staticmethod
+	def strptime(*args, **kwargs):
+		return dt.strptime(*args, **kwargs)
+
 
 def source_remove(id):
 	timer_manager.remove_resouce(id)
