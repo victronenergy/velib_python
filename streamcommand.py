@@ -23,9 +23,11 @@ class StreamCommand(object):
 			try:
 				self.process = subprocess.Popen(command, stdout=subprocess.PIPE)
 			except OSError as e:
-				logger.info("Command %s could not be started, error: %s" % (command, e.strerror))
-				self.feedbacksender.send({"status": "could_not_start", "message":
-					"Error no %s, %s" % (e.errno, e.strerror)}, finished=True)
+				logger.info("Command %s could not be started, errno: %s, msg: %s"
+					% (command, e.errno, e.strerror))
+				self.feedbacksender.send({"status": "error",
+					"errormessage": "Could not start (errno %s, msg %s)" % (e.errno, e.strerror),
+					"errorcode": 731}, finished=True)
 
 				self.process = None
 				return
@@ -50,11 +52,12 @@ class StreamCommand(object):
 			self.process.terminate()  # TODO or should it be killed?
 			thread.join()
 			logger.info("Command %s has been terminated" % command)
-			self.feedbacksender.send({"status": "finished", "exitstatus": "stopped_by_timeout"}, finished=True)
+			self.feedbacksender.send({"status": "error", "errormessage": "Stopped by timeout",
+				"errorcode": 732}, finished=True)
 
 		# TODO, check if the process has crashed, and give exitstatus: crashed
 		else:
-			logger.info("Command %s execution completed ok. Exitcode %d" % (command, self.process.returncode))
+			logger.info("Command %s execution completed. Exitcode %d" % (command, self.process.returncode))
 			self.feedbacksender.send({"status": "finished", "exitstatus": "normal_exit",
 				 "exitcode": self.process.returncode}, finished=True)
 
