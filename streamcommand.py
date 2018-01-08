@@ -55,10 +55,10 @@ class StreamCommand(object):
 			self.feedbacksender.send({"status": "error", "errormessage": "Stopped by timeout",
 				"errorcode": 732}, finished=True)
 
-		# TODO, check if the process has crashed, and give exitstatus: crashed
+		# TODO, check if the process has crashed
 		else:
 			logger.info("Command %s execution completed. Exitcode %d" % (command, self.process.returncode))
-			self.feedbacksender.send({"status": "finished", "exitstatus": "normal_exit",
+			self.feedbacksender.send({"status": "finished",
 				 "exitcode": self.process.returncode}, finished=True)
 
 		return self.process.returncode
