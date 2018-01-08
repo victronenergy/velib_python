@@ -12,9 +12,10 @@ from time import sleep
 
 # Runs a command, and calls sendfeedback with the statusupdates.
 class StreamCommand(object):
-	def run(self, command, timeout, feedbacksender):
+	def run(self, command, timeout, feedbacksender, errorprefix = ""):
 		self.feedbacksender = feedbacksender
-		self.returncode = None
+		self.returncode = errorprefix,
+		self.errorprefix = errorprefix
 
 		def target():
 			logger.info('Thread started for running %s' % command)
@@ -24,8 +25,7 @@ class StreamCommand(object):
 				self.process = subprocess.Popen(command, stdout=subprocess.PIPE)
 			except OSError as e:
 				logger.info("Command %s could not be started, error: %s" % (command, e.strerror))
-				self.feedbacksender.send({"status": "could_not_start", "message":
-					"Error no %s, %s" % (e.errno, e.strerror)}, finished=True)
+				self.feedbacksender.send({"status": "error", "errormessage": "Could not start", "errorcode": 731}, finished=True)
 
 				self.process = None
 				return
@@ -50,13 +50,16 @@ class StreamCommand(object):
 			self.process.terminate()  # TODO or should it be killed?
 			thread.join()
 			logger.info("Command %s has been terminated" % command)
-			self.feedbacksender.send({"status": "finished", "exitstatus": "stopped_by_timeout"}, finished=True)
+			self.feedbacksender.send({"status": "error", "errormessage": "Stopped by timeout", "errorcode": 732}, finished=True)
 
 		# TODO, check if the process has crashed, and give exitstatus: crashed
 		else:
 			logger.info("Command %s execution completed ok. Exitcode %d" % (command, self.process.returncode))
-			self.feedbacksender.send({"status": "finished", "exitstatus": "normal_exit",
-				 "exitcode": self.process.returncode}, finished=True)
+			if self.process.returncode is 0:
+				self.feedbacksender.send({"status": "finished", "exitstatus": "normal_exit",
+					 "exitcode": self.process.returncode}, finished=True)
+			else:
+				self.feedbacksender.send({"status": "error", "errorcode": self.errorprefix + str(self.process.returncode), "errormessage": self.errorprefix + str(self.process.returncode)}, finished=True)
 
 		return self.process.returncode
 
