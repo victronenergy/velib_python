@@ -12,9 +12,10 @@ from time import sleep
 
 # Runs a command, and calls sendfeedback with the statusupdates.
 class StreamCommand(object):
-	def run(self, command, timeout, feedbacksender):
+	def run(self, command, timeout, feedbacksender, errorprefix = ""):
 		self.feedbacksender = feedbacksender
-		self.returncode = None
+		self.returncode = errorprefix,
+		self.errorprefix = errorprefix
 
 		def target():
 			logger.info('Thread started for running %s' % command)
@@ -54,8 +55,11 @@ class StreamCommand(object):
 		# TODO, check if the process has crashed, and give exitstatus: crashed
 		else:
 			logger.info("Command %s execution completed ok. Exitcode %d" % (command, self.process.returncode))
-			self.feedbacksender.send({"status": "finished", "exitstatus": "normal_exit",
-				 "exitcode": self.process.returncode}, finished=True)
+			if self.process.returncode is 0:
+				self.feedbacksender.send({"status": "finished", "exitstatus": "normal_exit",
+					 "exitcode": self.process.returncode}, finished=True)
+			else:
+				self.feedbacksender.send({"status": "error", "errorcode": self.errorprefix + str(self.process.returncode), "errormessage": self.errorprefix + str(self.process.returncode)}, finished=True)
 
 		return self.process.returncode
 
