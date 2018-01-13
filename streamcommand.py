@@ -12,6 +12,11 @@ from time import sleep
 
 # Runs a command, and calls sendfeedback with the statusupdates.
 class StreamCommand(object):
+	SIGNALS = {
+		1: "SIGHUP", 2: "SIGINT", 3: "SIGQUIT", 4: "SIGILL", 6: "SIGABRT", 7: "SIGBUS", 8: "SIGFPE",
+		9: "SIGKILL", 10: "SIGBUS", 11: "SIGSEGV", 12: "SIGSYS", 13: "SIGPIPE", 14: "SIGALRM",
+		15: "SIGTERM"}
+
 	def run(self, command, timeout, feedbacksender):
 		self.feedbacksender = feedbacksender
 		self.returncode = None
@@ -34,33 +39,36 @@ class StreamCommand(object):
 
 			self.readandsend()
 
-			logger.info('Thread finished for running %s' % command)
 
 		thread = threading.Thread(target=target)
 		thread.start()
 		thread.join(timeout)
 
 		if self.process is None:
-			# Error message (could_not_start) has already been sendfeedback-ed: nothing left to do
+			# Error message has already beent sent
 			return None
 
 		# Make sure to send all the output
 		self.readandsend()
 
 		if thread.is_alive():
-			logger.info("Command %s will now be terminated because of timeout" % command)
+			logger.warning("Command %s will now be terminated because of timeout" % command)
 			self.process.terminate()  # TODO or should it be killed?
 			thread.join()
-			logger.info("Command %s has been terminated" % command)
-			self.feedbacksender.send({"status": "error", "errormessage": "Stopped by timeout",
-				"errorcode": 732}, finished=True)
+			logger.warning("Command %s has been terminated" % command)
+			r = {"status": "error", "errormessage": "Stopped by timeout", "errorcode": 732}
 
-		# TODO, check if the process has crashed
+		elif self.process.returncode < 0:
+			signal = -1 * self.process.returncode
+			error = "Stopped with signal %d - %s" % (signal, self.SIGNALS.get(signal, "unknown"))
+			logger.warning("Command %s abnormal stop. %s" % (command, error))
+			r = {"status": "error", "errorcode": 733, "errormessage": error}
+
 		else:
 			logger.info("Command %s execution completed. Exitcode %d" % (command, self.process.returncode))
-			self.feedbacksender.send({"status": "finished",
-				 "exitcode": self.process.returncode}, finished=True)
+			r = {"status": "finished", "exitcode": self.process.returncode}
 
+		self.feedbacksender.send(r, finished=True)
 		return self.process.returncode
 
 	def readandsend(self):
