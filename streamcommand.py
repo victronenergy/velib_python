@@ -82,4 +82,4 @@ class StreamCommand(object):
 			self.feedbacksender.send({"status": "running", "xmloutput": line})
 			if line == '' and self.process.poll() != None:
 				break
-			sleep(0.1)
+			sleep(0.04)
