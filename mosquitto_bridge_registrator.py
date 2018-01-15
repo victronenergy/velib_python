@@ -55,12 +55,19 @@ class MosquittoBridgeRegistrator(object):
 	MQTT server, and the global mqtt.victronenergy.com. It can be called
 	concurrently by different processes; efforts will be synchronized using an
 	advisory lock file.
+
+	It now also supports registering the API key and getting it and the password without
+	restarting Mosquitto. This allows using the API key, but not use the local broker and
+	instead connect directly to mqtt.victronenergy.com.
 	"""
 
-	def __init__(self, system_id):
+	def __init__(self, system_id, restart_mosquitto=True):
 		self._init_broker_timer = None
 		self._client_id = None
 		self._system_id = system_id
+		self._global_broker_username = "ccgxapikey_" + self._system_id
+		self._global_broker_password = None
+		self._restart_mosquitto = restart_mosquitto
 		self._requests_log_level = logging.getLogger("requests").getEffectiveLevel()
 
 	def register(self):
@@ -82,8 +89,6 @@ class MosquittoBridgeRegistrator(object):
 			with open(LockFilePath, "a") as lockFile:
 				fcntl.flock(lockFile, fcntl.LOCK_EX)
 
-				restart_broker = False
-				password = None
 				orig_config = None
 				# Read the current config file (if present)
 				try:
@@ -94,30 +99,29 @@ class MosquittoBridgeRegistrator(object):
 					settings = dict(tuple(l.strip().split(' ', 1)) for l in orig_config.split('\n')
 						if not l.startswith('#') and l.strip() != '')
 					self._client_id = settings.get('remote_clientid')
-					password = settings.get('remote_password')
+					self._global_broker_password = settings.get('remote_password')
 				except IOError:
 					if not quiet:
 						logging.info('[InitBroker] Reading config file failed.')
 				# Fix items missing from config
 				if self._client_id is None:
 					self._client_id = 'ccgx_' + get_random_string(12)
-				if password is None:
-					password = get_random_string(32)
+				if self._global_broker_password is None:
+					self._global_broker_password = get_random_string(32)
 				# Get to the actual registration
 				if not quiet:
 					logging.info('[InitBroker] Registering CCGX at VRM portal')
 				with requests.Session() as session:
 					headers = {'content-type': 'application/x-www-form-urlencoded', 'User-Agent': 'dbus-mqtt'}
-					identifier = 'ccgxapikey_' + self._system_id
 					r = session.post(
 						VrmApiServer + '/log/storemqttpassword.php',
-						data=dict(identifier=identifier, mqttPassword=password),
+						data=dict(identifier=self._global_broker_username, mqttPassword=self._global_broker_password),
 						headers=headers,
 						verify=CaBundlePath,
 						timeout=(timeout,timeout))
 					if r.status_code == requests.codes.ok:
-						config = BridgeSettings.format(self._system_id, password, self._client_id, VrmBroker,
-							CaBundlePath, identifier)
+						config = BridgeSettings.format(self._system_id, self._global_broker_password, self._client_id, VrmBroker,
+							CaBundlePath, self._global_broker_username)
 						# Do we need to adjust the settings file?
 						if config != orig_config:
 							logging.info('[InitBroker] Writing new config file')
@@ -141,8 +145,16 @@ class MosquittoBridgeRegistrator(object):
 		return True
 
 	def _restart_broker(self):
-		logging.info('Restarting broker')
-		subprocess.call(['svc', '-t', '/service/mosquitto'])
+		if self._restart_mosquitto:
+			logging.info('Restarting broker')
+			subprocess.call(['svc', '-t', '/service/mosquitto'])
+
+	def get_password(self):
+		assert self._global_broker_password is not None
+		return self._global_broker_password
+
+	def get_apikey(self):
+		return self._global_broker_username
 
 
 def get_random_string(size=32):
