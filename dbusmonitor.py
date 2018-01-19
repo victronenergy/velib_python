@@ -42,6 +42,24 @@ class SessionBus(dbus.bus.BusConnection):
 	def __new__(cls):
 		return dbus.bus.BusConnection.__new__(cls, dbus.bus.BusConnection.TYPE_SESSION)
 
+def make_text_getter(dbusConn, service, path):
+	""" Make a callable that will fetch a particular service- and path's text
+	    representation. """
+	return lambda: unwrap_dbus_value(dbusConn.call_blocking(service, path, None, 'GetText', '', []))
+
+class ServicePath(object):
+	""" Wrapper class for keeping track of values and options on service paths.
+	    This is much more readable than arbitrary indexes into a list. """
+
+	def __init__(self, value, get_text, options):
+		self.value = value
+		self._get_text = get_text
+		self.options = options
+
+	@property
+	def text(self):
+		return self._get_text()
+
 class DbusMonitor(object):
 	## Constructor
 	def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
@@ -73,7 +91,7 @@ class DbusMonitor(object):
 			signal_name='NameOwnerChanged')
 
 		# Subscribe to PropertiesChanged for all services
-		self.dbusConn.add_signal_receiver(self.handler_value_changes,
+		self.dbusConn.add_signal_receiver(self.handler_property_changes,
 			dbus_interface='com.victronenergy.BusItem',
 			signal_name='PropertiesChanged', path_keyword='path',
 			sender_keyword='senderId')
@@ -173,7 +191,9 @@ class DbusMonitor(object):
 					# org.freedesktop.DBus.Error.UnknownMethod
 					logger.debug("%s %s does not exist (yet)" % (serviceName, path))
 					value = None
-				service['paths'][path] = [unwrap_dbus_value(value), options]
+
+				service['paths'][path] = ServicePath(unwrap_dbus_value(value),
+					make_text_getter(self.dbusConn, serviceName, path), options)
 
 				if options['whenToLog']:
 					service[options['whenToLog']].append(path)
@@ -197,7 +217,7 @@ class DbusMonitor(object):
 
 		return True
 
-	def handler_value_changes(self, changes, path, senderId):
+	def handler_property_changes(self, changes, path, senderId):
 		try:
 			service = self.servicesById[senderId]
 			a = service['paths'][path]
@@ -212,14 +232,14 @@ class DbusMonitor(object):
 
 		# First update our store to the new value
 		changes['Value'] = unwrap_dbus_value(changes['Value'])
-		if a[0] == changes['Value']:
+		if a.value == changes['Value']:
 			return
 
-		a[0] = changes['Value']
+		a.value = changes['Value']
 
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
-			idle_add(exit_on_error, self._execute_value_changes, service['name'], path, changes, a[1])
+			idle_add(exit_on_error, self._execute_value_changes, service['name'], path, changes, a.options)
 
 	def _execute_value_changes(self, serviceName, objectPath, changes, options):
 		# double check that the service still exists, as it might have
@@ -242,7 +262,7 @@ class DbusMonitor(object):
 		if value is None:
 			return default_value
 
-		return value[0]
+		return value.value
 
 	def exists(self, serviceName, objectPath):
 		try:
@@ -309,21 +329,29 @@ class DbusMonitor(object):
 
 		service = self.servicesByName[servicename]
 
+		if converter is None:
+			converter = lambda x: x
+		elif converter.convert.func_code.co_argcount == 2:
+			# New converter takes an object with possibly lazy attributes.
+			convert = lambda sp: converter.convert(sp)
+		else:
+			# Legacy converter has two arguments (plus cls), code and value.
+			convert = lambda sp: converter.convert(sp.options['code'], sp.value)
+
 		for category in categoryfilter:
 
 			for path in service[category]:
 
-				value, options = service['paths'][path]
+				sp = service['paths'][path]
 
-				if value is not None:
+				if sp.value is not None:
+					value = convert(sp)
 
-					value = value if converter is None else converter.convert(options['code'], value)
-
-					precision = options.get('precision')
+					precision = sp.options.get('precision')
 					if precision:
 						value = round(value, precision)
 
-					result[options['code'] + "[" + str(deviceInstance) + "]"] = value
+					result[sp.options['code'] + "[" + str(deviceInstance) + "]"] = value
 
 		return result
 
