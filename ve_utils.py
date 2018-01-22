@@ -4,6 +4,7 @@ from traceback import print_exc
 from os import _exit as os_exit
 from os import statvfs
 import logging
+from functools import update_wrapper
 import dbus
 logger = logging.getLogger(__name__)
 
@@ -186,3 +187,16 @@ def unwrap_dbus_value(val):
 	if isinstance(val, dbus.Boolean):
 		return bool(val)
 	return val
+
+class reify(object):
+	""" Decorator to replace a property of an object with the calculated value,
+	    to make it concrete. """
+	def __init__(self, wrapped):
+		self.wrapped = wrapped
+		update_wrapper(self, wrapped)
+	def __get__(self, inst, objtype=None):
+		if inst is None:
+			return self
+		v = self.wrapped(inst)
+		setattr(inst, self.wrapped.__name__, v)
+		return v
