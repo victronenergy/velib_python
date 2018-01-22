@@ -338,12 +338,8 @@ class DbusMonitor(object):
 
 		if converter is None:
 			converter = lambda x: x
-		elif converter.convert.func_code.co_argcount == 2:
-			# New converter takes an object with possibly lazy attributes.
-			convert = lambda sp: converter.convert(sp)
 		else:
-			# Legacy converter has two arguments (plus cls), code and value.
-			convert = lambda sp: converter.convert(sp.options['code'], sp.value)
+			convert = lambda sp: converter.convert(sp)
 
 		for category in categoryfilter:
 
