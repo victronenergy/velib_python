@@ -29,7 +29,7 @@ import os
 
 # our own packages
 from vedbus import VeDbusItemExport, VeDbusItemImport
-from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value
+from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value, reify
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -56,8 +56,13 @@ class ServicePath(object):
 		self._get_text = get_text
 		self.options = options
 
-	@property
+	@reify
 	def text(self):
+		""" Because this property is reified, GetText will be called only once,
+		    if at all. If an event provides this information, this property
+		    is replaced. The upside is that we don't call GetText unless we
+		    know that we need it, but if we receive this information via an
+		    event, then we don't need to call it at all. """
 		return self._get_text()
 
 class DbusMonitor(object):
@@ -236,6 +241,8 @@ class DbusMonitor(object):
 			return
 
 		a.value = changes['Value']
+		if 'Text' in changes:
+			a.text = changes['Text']
 
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
