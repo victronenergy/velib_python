@@ -51,7 +51,8 @@ class ServicePath(object):
 	""" Wrapper class for keeping track of values and options on service paths.
 	    This is much more readable than arbitrary indexes into a list. """
 
-	def __init__(self, value, get_text, options):
+	def __init__(self, path, value, get_text, options):
+		self.path = path
 		self.value = value
 		self._get_text = get_text
 		self.options = options
@@ -197,7 +198,7 @@ class DbusMonitor(object):
 					logger.debug("%s %s does not exist (yet)" % (serviceName, path))
 					value = None
 
-				service['paths'][path] = ServicePath(unwrap_dbus_value(value),
+				service['paths'][path] = ServicePath(path, unwrap_dbus_value(value),
 					make_text_getter(self.dbusConn, serviceName, path), options)
 
 				if options['whenToLog']:
