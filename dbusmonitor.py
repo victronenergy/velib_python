@@ -146,13 +146,18 @@ class DbusMonitor(object):
 			# devices at instance 0. Not sure how to fix this yet.
 			if serviceName == 'com.victronenergy.vebus.ttyO1' and self.vebusDeviceInstance0:
 				di = 0
+			elif serviceName == 'com.victronenergy.settings':
+				di = 0
 			else:
-				try:
-					di = self.dbusConn.call_blocking(serviceName, '/DeviceInstance',
-						None, 'GetValue', '', [])
-					di = 0 if di is None else int(di)
-				except dbus.exceptions.DBusException as e:
-					di = 0
+				di = self.dbusConn.call_blocking(serviceName, '/DeviceInstance',
+					None, 'GetValue', '', [])
+				di = unwrap_dbus_value(di)
+				if di is None:
+					logger.warning("Skipping %s because /DeviceInstance is DBUS-INVALID"
+						% (serviceName))
+					return False
+
+				di = int(di)
 
 			service['deviceInstance'] = di
 			logger.info("       %s has device instance %s" % (serviceName, di))
