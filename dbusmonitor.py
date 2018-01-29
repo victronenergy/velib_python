@@ -166,19 +166,20 @@ class DbusMonitor(object):
 		assert serviceId not in self.servicesById
 
 		try:
-			# for vebus.ttyO1, this is workaround, since VRM Portal expects the main vebus devices at
-			# instance 0. Not sure how to fix this yet.
+			# for vebus.ttyO1, this is workaround, since VRM Portal expects the main vebus
+			# devices at instance 0. Not sure how to fix this yet.
 			if serviceName == 'com.victronenergy.vebus.ttyO1' and self.vebusDeviceInstance0:
-				device_instance = 0
+				di = 0
 			else:
 				try:
-					device_instance = self.dbusConn.call_blocking(serviceName, '/DeviceInstance', None, 'GetValue', '', [])
-					device_instance = 0 if device_instance is None else int(device_instance)
+					di = self.dbusConn.call_blocking(serviceName, '/DeviceInstance',
+						None, 'GetValue', '', [])
+					di = 0 if di is None else int(di)
 				except dbus.exceptions.DBusException as e:
-					device_instance = 0
+					di = 0
 
-			service['deviceInstance'] = device_instance
-			logger.info("       %s has device instance %s" % (serviceName, service['deviceInstance']))
+			service['deviceInstance'] = di
+			logger.info("       %s has device instance %s" % (serviceName, di))
 
 			for path, options in paths.iteritems():
 				# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
