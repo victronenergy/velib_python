@@ -42,29 +42,16 @@ class SessionBus(dbus.bus.BusConnection):
 	def __new__(cls):
 		return dbus.bus.BusConnection.__new__(cls, dbus.bus.BusConnection.TYPE_SESSION)
 
-def make_text_getter(dbusConn, service, path):
-	""" Make a callable that will fetch a particular service- and path's text
-	    representation. """
-	return lambda: unwrap_dbus_value(dbusConn.call_blocking(service, path, None, 'GetText', '', []))
-
 class ServicePath(object):
 	""" Wrapper class for keeping track of values and options on service paths.
 	    This is much more readable than arbitrary indexes into a list. """
 
-	def __init__(self, path, value, get_text, options):
+	def __init__(self, path, value, text, options):
 		self.path = path
 		self.value = value
-		self._get_text = get_text
+		self.text = text
 		self.options = options
 
-	@reify
-	def text(self):
-		""" Because this property is reified, GetText will be called only once,
-		    if at all. If an event provides this information, this property
-		    is replaced. The upside is that we don't call GetText unless we
-		    know that we need it, but if we receive this information via an
-		    event, then we don't need to call it at all. """
-		return self._get_text()
 
 class DbusMonitor(object):
 	## Constructor
@@ -194,27 +181,48 @@ class DbusMonitor(object):
 
 		logger.info("       %s has device instance %s" % (serviceName, di))
 
-		for path, options in paths.iteritems():
-			# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
-			# options will be a dictionary: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
-			# check that the whenToLog setting is set to something we expect
-			assert options['whenToLog'] is None or options['whenToLog'] in whentologoptions
+		try:
+			values = self.dbusConn.call_blocking(serviceName, '/', None, 'GetValue', '', [])
+			texts = self.dbusConn.call_blocking(serviceName, '/', None, 'GetText', '', [])
+		except:
+			values = None
+			logger.warning("%s does not support requesting root item, falling back"
+				% serviceName)
 
+		def get_path(path):
 			try:
-				value = self.dbusConn.call_blocking(serviceName, path, None, 'GetValue', '', [])
+				value = self.dbusConn.call_blocking(
+					serviceName, path, None, 'GetValue', '', [])
+				text = self.dbusConn.call_blocking(
+					serviceName, path, None, 'GetText', '', [])
 			except dbus.exceptions.DBusException as e:
 				if e.get_dbus_name() == 'org.freedesktop.DBus.Error.UnknownObject':
 					logger.debug("%s %s does not exist (yet)" % (serviceName, path))
-					value = None
-				else:
-					raise
+					return None, None
+
+				raise
+
+			return value, text
+
+		for path, options in paths.iteritems():
+
+			# options is a dict: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
+			# check that the whenToLog setting is set to something we expect
+			assert options['whenToLog'] is None or options['whenToLog'] in whentologoptions
+
+			if values is not None:
+				value = values.get(path[1:], None)
+				text = texts.get(path[1:], None)
+			else:
+				# fallback for services that ~still~ don't support root item,
+				# such as qwacs.
+				value, text = get_path(path)
 
 			service['paths'][path] = ServicePath(path, unwrap_dbus_value(value),
-				make_text_getter(self.dbusConn, serviceName, path), options)
+				unwrap_dbus_value(text), options)
 
 			if options['whenToLog']:
 				service[options['whenToLog']].append(path)
-
 
 		logger.debug("Finished scanning and storing items for %s" % serviceName)
 
