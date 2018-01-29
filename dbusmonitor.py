@@ -82,6 +82,7 @@ class DbusMonitor(object):
 		serviceNames = self.dbusConn.list_names()
 		for serviceName in serviceNames:
 			self.scan_dbus_service(serviceName)
+
 		logger.info('===== Search on dbus for services that we will monitor finished =====')
 
 	def dbus_name_owner_changed(self, name, oldowner, newowner):
@@ -108,9 +109,22 @@ class DbusMonitor(object):
 			if self.deviceRemovedCallback is not None:
 				self.deviceRemovedCallback(name, deviceInstance)
 
+	def scan_dbus_service(self, serviceName):
+		try:
+			return self.scan_dbus_service_inner(serviceName)
+		except:
+			logger.error("Ignoring %s because of error while scanning:" % (serviceName))
+			traceback.print_exc()
+			return False
+
+			# Errors 'org.freedesktop.DBus.Error.ServiceUnknown' and
+			# 'org.freedesktop.DBus.Error.Disconnected' seem to happen when the service
+			# disappears while its being scanned. Which might happen, but is not really
+			# normal either, so letting them go into the logs.
+
 	# Scans the given dbus service to see if it contains anything interesting for us. If it does, add
 	# it to our list of monitored D-Bus services.
-	def scan_dbus_service(self, serviceName):
+	def scan_dbus_service_inner(self, serviceName):
 
 		# make it a normal string instead of dbus string
 		serviceName = str(serviceName)
@@ -141,65 +155,48 @@ class DbusMonitor(object):
 
 		assert serviceId not in self.servicesById
 
-		try:
-			# for vebus.ttyO1, this is workaround, since VRM Portal expects the main vebus
-			# devices at instance 0. Not sure how to fix this yet.
-			if serviceName == 'com.victronenergy.vebus.ttyO1' and self.vebusDeviceInstance0:
-				di = 0
-			elif serviceName == 'com.victronenergy.settings':
-				di = 0
-			else:
-				di = self.dbusConn.call_blocking(serviceName, '/DeviceInstance',
-					None, 'GetValue', '', [])
-				di = unwrap_dbus_value(di)
-				if di is None:
-					logger.warning("Skipping %s because /DeviceInstance is DBUS-INVALID"
-						% (serviceName))
-					return False
+		# for vebus.ttyO1, this is workaround, since VRM Portal expects the main vebus
+		# devices at instance 0. Not sure how to fix this yet.
+		if serviceName == 'com.victronenergy.vebus.ttyO1' and self.vebusDeviceInstance0:
+			di = 0
+		elif serviceName == 'com.victronenergy.settings':
+			di = 0
+		else:
+			di = self.dbusConn.call_blocking(serviceName, '/DeviceInstance',
+				None, 'GetValue', '', [])
+			di = int(di)
 
-				di = int(di)
+		service['deviceInstance'] = di
 
-			service['deviceInstance'] = di
-			logger.info("       %s has device instance %s" % (serviceName, di))
+		logger.info("       %s has device instance %s" % (serviceName, di))
 
-			for path, options in paths.iteritems():
-				# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
-				# options will be a dictionary: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
+		for path, options in paths.iteritems():
+			# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
+			# options will be a dictionary: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
+			# check that the whenToLog setting is set to something we expect
+			assert options['whenToLog'] is None or options['whenToLog'] in whentologoptions
 
-				# check that the whenToLog setting is set to something we expect
-				assert options['whenToLog'] is None or options['whenToLog'] in whentologoptions
-
-				try:
-					value = self.dbusConn.call_blocking(serviceName, path, None, 'GetValue', '', [])
-				except dbus.exceptions.DBusException as e:
-					if e.get_dbus_name() == 'org.freedesktop.DBus.Error.ServiceUnknown' or \
-						e.get_dbus_name() == 'org.freedesktop.DBus.Error.Disconnected':
-						raise  # These exception will be handled below
-					# TODO: Look into this, perhaps filter more specifically on this error:
-					# org.freedesktop.DBus.Error.UnknownMethod
+			try:
+				value = self.dbusConn.call_blocking(serviceName, path, None, 'GetValue', '', [])
+			except dbus.exceptions.DBusException as e:
+				if e.get_dbus_name() == 'org.freedesktop.DBus.Error.UnknownObject':
 					logger.debug("%s %s does not exist (yet)" % (serviceName, path))
 					value = None
-				service['paths'][path] = [unwrap_dbus_value(value), options]
+				else:
+					raise
 
-				if options['whenToLog']:
-					service[options['whenToLog']].append(path)
+			service['paths'][path] = [unwrap_dbus_value(value), options]
 
-				logger.debug("    Added %s%s" % (serviceName, path))
+			if options['whenToLog']:
+				service[options['whenToLog']].append(path)
 
-			logger.debug("Finished scanning and storing items for %s" % serviceName)
 
-			# Adjust self at the end of the scan, so we don't have an incomplete set of
-			# data if an exception occurs during the scan.
-			self.servicesByName[serviceName] = service
-			self.servicesById[serviceId] = service
+		logger.debug("Finished scanning and storing items for %s" % serviceName)
 
-		except dbus.exceptions.DBusException as e:
-			if e.get_dbus_name() == 'org.freedesktop.DBus.Error.ServiceUnknown' or \
-				e.get_dbus_name() == 'org.freedesktop.DBus.Error.Disconnected':
-				logger.info("Service disappeared while being scanned: %s" % serviceName)
-				return False
-			else:
-				raise
+		# Adjust self at the end of the scan, so we don't have an incomplete set of
+		# data if an exception occurs during the scan.
+		self.servicesByName[serviceName] = service
+		self.servicesById[serviceId] = service
 
 		return True
 
