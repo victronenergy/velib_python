@@ -129,9 +129,9 @@ class VeDbusService(object):
 	# Add the mandatory paths, as per victron dbus api doc
 	def add_mandatory_paths(self, processname, processversion, connection,
 			deviceinstance, productid, productname, firmwareversion, hardwareversion, connected):
-		self.add_path('/Management/ProcessName', processname)
-		self.add_path('/Management/ProcessVersion', processversion)
-		self.add_path('/Management/Connection', connection)
+		self.add_path('/Mgmt/ProcessName', processname)
+		self.add_path('/Mgmt/ProcessVersion', processversion)
+		self.add_path('/Mgmt/Connection', connection)
 
 		# Create rest of the mandatory objects
 		self.add_path('/DeviceInstance', deviceinstance)
