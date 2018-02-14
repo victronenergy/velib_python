@@ -30,10 +30,10 @@ import os
 # our own packages
 from vedbus import VeDbusItemExport, VeDbusItemImport
 from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value
+notfound = object() # For lookups where None is a valid result
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
 class SystemBus(dbus.bus.BusConnection):
 	def __new__(cls):
 		return dbus.bus.BusConnection.__new__(cls, dbus.bus.BusConnection.TYPE_SYSTEM)
@@ -170,22 +170,38 @@ class DbusMonitor(object):
 
 		logger.info("       %s has device instance %s" % (serviceName, di))
 
+        # Let's try to fetch everything in one go
+		values = {}
+		texts = {}
+		try:
+			values.update(self.dbusConn.call_blocking(serviceName, '/', None, 'GetValue', '', []))
+			texts.update(self.dbusConn.call_blocking(serviceName, '/', None, 'GetText', '', []))
+		except:
+			pass
+
 		for path, options in paths.iteritems():
 			# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
 			# options will be a dictionary: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
 			# check that the whenToLog setting is set to something we expect
 			assert options['whenToLog'] is None or options['whenToLog'] in whentologoptions
 
-			try:
-				value = self.dbusConn.call_blocking(serviceName, path, None, 'GetValue', '', [])
-			except dbus.exceptions.DBusException as e:
-				if e.get_dbus_name() == 'org.freedesktop.DBus.Error.UnknownObject':
-					logger.debug("%s %s does not exist (yet)" % (serviceName, path))
-					value = None
-				else:
-					raise
+			# Try to obtain the value we want from our bulk fetch. If we
+			# cannot find it there, do an individual query.
+			value = values.get(path[1:], notfound)
+			text = texts.get(path[1:], notfound)
+			if value is notfound or text is notfound:
+				try:
+					value = self.dbusConn.call_blocking(serviceName, path, None, 'GetValue', '', [])
+					text = self.dbusConn.call_blocking(serviceName, path, None, 'GetText', '', [])
+				except dbus.exceptions.DBusException as e:
+					if e.get_dbus_name() == 'org.freedesktop.DBus.Error.UnknownObject':
+						logger.debug("%s %s does not exist (yet)" % (serviceName, path))
+						value = None
+						text = None
+					else:
+						raise
 
-			service['paths'][path] = [unwrap_dbus_value(value), options]
+			service['paths'][path] = [unwrap_dbus_value(value), unwrap_dbus_value(text), options]
 
 			if options['whenToLog']:
 				service[options['whenToLog']].append(path)
@@ -219,10 +235,11 @@ class DbusMonitor(object):
 			return
 
 		a[0] = changes['Value']
+		a[1] = changes['Text']
 
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
-			idle_add(exit_on_error, self._execute_value_changes, service['name'], path, changes, a[1])
+			idle_add(exit_on_error, self._execute_value_changes, service['name'], path, changes, a[2])
 
 	def _execute_value_changes(self, serviceName, objectPath, changes, options):
 		# double check that the service still exists, as it might have
@@ -316,11 +333,11 @@ class DbusMonitor(object):
 
 			for path in service[category]:
 
-				value, options = service['paths'][path]
+				value, text, options = service['paths'][path]
 
 				if value is not None:
 
-					value = value if converter is None else converter.convert(options['code'], value)
+					value = value if converter is None else converter.convert(path, options['code'], value, text)
 
 					precision = options.get('precision')
 					if precision:
