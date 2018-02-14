@@ -29,7 +29,7 @@ import os
 
 # our own packages
 from vedbus import VeDbusItemExport, VeDbusItemImport
-from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value, reify
+from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -41,30 +41,6 @@ class SystemBus(dbus.bus.BusConnection):
 class SessionBus(dbus.bus.BusConnection):
 	def __new__(cls):
 		return dbus.bus.BusConnection.__new__(cls, dbus.bus.BusConnection.TYPE_SESSION)
-
-def make_text_getter(dbusConn, service, path):
-	""" Make a callable that will fetch a particular service- and path's text
-	    representation. """
-	return lambda: unwrap_dbus_value(dbusConn.call_blocking(service, path, None, 'GetText', '', []))
-
-class ServicePath(object):
-	""" Wrapper class for keeping track of values and options on service paths.
-	    This is much more readable than arbitrary indexes into a list. """
-
-	def __init__(self, path, value, get_text, options):
-		self.path = path
-		self.value = value
-		self._get_text = get_text
-		self.options = options
-
-	@reify
-	def text(self):
-		""" Because this property is reified, GetText will be called only once,
-		    if at all. If an event provides this information, this property
-		    is replaced. The upside is that we don't call GetText unless we
-		    know that we need it, but if we receive this information via an
-		    event, then we don't need to call it at all. """
-		return self._get_text()
 
 class DbusMonitor(object):
 	## Constructor
@@ -97,7 +73,7 @@ class DbusMonitor(object):
 			signal_name='NameOwnerChanged')
 
 		# Subscribe to PropertiesChanged for all services
-		self.dbusConn.add_signal_receiver(self.handler_property_changes,
+		self.dbusConn.add_signal_receiver(self.handler_value_changes,
 			dbus_interface='com.victronenergy.BusItem',
 			signal_name='PropertiesChanged', path_keyword='path',
 			sender_keyword='senderId')
@@ -197,9 +173,7 @@ class DbusMonitor(object):
 					# org.freedesktop.DBus.Error.UnknownMethod
 					logger.debug("%s %s does not exist (yet)" % (serviceName, path))
 					value = None
-
-				service['paths'][path] = ServicePath(path, unwrap_dbus_value(value),
-					make_text_getter(self.dbusConn, serviceName, path), options)
+				service['paths'][path] = [unwrap_dbus_value(value), options]
 
 				if options['whenToLog']:
 					service[options['whenToLog']].append(path)
@@ -223,7 +197,7 @@ class DbusMonitor(object):
 
 		return True
 
-	def handler_property_changes(self, changes, path, senderId):
+	def handler_value_changes(self, changes, path, senderId):
 		try:
 			service = self.servicesById[senderId]
 			a = service['paths'][path]
@@ -238,16 +212,14 @@ class DbusMonitor(object):
 
 		# First update our store to the new value
 		changes['Value'] = unwrap_dbus_value(changes['Value'])
-		if a.value == changes['Value']:
+		if a[0] == changes['Value']:
 			return
 
-		a.value = changes['Value']
-		if 'Text' in changes:
-			a.text = changes['Text']
+		a[0] = changes['Value']
 
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
-			idle_add(exit_on_error, self._execute_value_changes, service['name'], path, changes, a.options)
+			idle_add(exit_on_error, self._execute_value_changes, service['name'], path, changes, a[1])
 
 	def _execute_value_changes(self, serviceName, objectPath, changes, options):
 		# double check that the service still exists, as it might have
@@ -270,7 +242,7 @@ class DbusMonitor(object):
 		if value is None:
 			return default_value
 
-		return value.value
+		return value[0]
 
 	def exists(self, serviceName, objectPath):
 		try:
@@ -337,25 +309,21 @@ class DbusMonitor(object):
 
 		service = self.servicesByName[servicename]
 
-		if converter is None:
-			converter = lambda x: x
-		else:
-			convert = lambda sp: converter.convert(sp)
-
 		for category in categoryfilter:
 
 			for path in service[category]:
 
-				sp = service['paths'][path]
+				value, options = service['paths'][path]
 
-				if sp.value is not None:
-					value = convert(sp)
+				if value is not None:
 
-					precision = sp.options.get('precision')
+					value = value if converter is None else converter.convert(options['code'], value)
+
+					precision = options.get('precision')
 					if precision:
 						value = round(value, precision)
 
-					result[sp.options['code'] + "[" + str(deviceInstance) + "]"] = value
+					result[options['code'] + "[" + str(deviceInstance) + "]"] = value
 
 		return result
 
