@@ -134,7 +134,10 @@ def wrap_dbus_value(value):
 	if isinstance(value, bool):
 		return dbus.Boolean(value, variant_level=1)
 	if isinstance(value, int):
-		return dbus.Int32(value, variant_level=1)
+		try:
+			return dbus.Int32(value, variant_level=1)
+		except OverflowError:
+			return dbus.Int64(value, variant_level=1)
 	if isinstance(value, str):
 		return dbus.String(value, variant_level=1)
 	if isinstance(value, unicode):
