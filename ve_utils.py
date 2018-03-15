@@ -41,13 +41,24 @@ def get_vrm_portal_id():
 	if __vrm_portal_id:
 		return __vrm_portal_id
 
-	# Assume we are on linux
-	import fcntl, socket, struct
+	# Attempt to get the id from /data/venus/unique-id where venus puts it
+	# on startup.
+	try:
+		__vrm_portal_id = open('/data/venus/unique-id').read().strip()
+	except IOError:
+		pass
+	else:
+		return __vrm_portal_id
 
+	# Fall back to getting our id using a syscall. Assume we are on linux.
+	# Allow the user to override what interface is used using an environment
+	# variable.
+	import fcntl, socket, struct, os
+
+	iface = os.environ.get('VRM_IFACE', 'eth0')
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-	info = fcntl.ioctl(s.fileno(), 0x8927,  struct.pack('256s', 'eth0'[:15]))
+	info = fcntl.ioctl(s.fileno(), 0x8927,  struct.pack('256s', iface[:15]))
 	__vrm_portal_id = ''.join(['%02x' % ord(char) for char in info[18:24]])
-
 	return __vrm_portal_id
 
 
