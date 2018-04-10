@@ -162,9 +162,14 @@ class DbusMonitor(object):
 		elif serviceName == 'com.victronenergy.settings':
 			di = 0
 		else:
-			di = self.dbusConn.call_blocking(serviceName, '/DeviceInstance',
-				None, 'GetValue', '', [])
-			di = int(di)
+			try:
+				di = self.dbusConn.call_blocking(serviceName,
+					'/DeviceInstance', None, 'GetValue', '', [])
+			except dbus.exceptions.DBusException:
+				logger.info("       %s was skipped because it has no device instance" % serviceName)
+				return False # Skip it
+			else:
+				di = int(di)
 
 		service['deviceInstance'] = di
 
