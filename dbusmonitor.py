@@ -11,7 +11,7 @@
 #		1) when services are added we do the same check on that
 #		2) when services are removed, we remove any items that we had that referred to that service
 #		3) if an existing services adds paths we update ourselves as well: on init, we make a
-#          VeDbusItemImport for a non-, or not yet existing objectpaths as well1
+#		   VeDbusItemImport for a non-, or not yet existing objectpaths as well1
 #
 # Code is used by the vrmLogger, and also the pubsub code. Both are other modules in the dbus_vrm repo.
 
@@ -175,7 +175,7 @@ class DbusMonitor(object):
 
 		logger.info("       %s has device instance %s" % (serviceName, di))
 
-        # Let's try to fetch everything in one go
+		# Let's try to fetch everything in one go
 		values = {}
 		texts = {}
 		try:
@@ -297,9 +297,9 @@ class DbusMonitor(object):
 			return -1
 		# We do not catch D-Bus exceptions here, because the previous implementation did not do that either.
 		return self.dbusConn.call_blocking(serviceName, objectPath,
-		                                   dbus_interface='com.victronenergy.BusItem',
-		                                   method='SetValue', signature=None,
-		                                   args=[wrap_dbus_value(value)])
+				   dbus_interface='com.victronenergy.BusItem',
+				   method='SetValue', signature=None,
+				   args=[wrap_dbus_value(value)])
 
 	# returns a dictionary, keys are the servicenames, value the instances
 	# optionally use the classfilter to get only a certain type of services, for
