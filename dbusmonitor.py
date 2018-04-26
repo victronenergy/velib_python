@@ -191,15 +191,17 @@ class DbusMonitor(object):
 			text = texts.get(path[1:], notfound)
 			if value is notfound or text is notfound:
 				try:
+					print(path)
 					value = self.dbusConn.call_blocking(serviceName, path, None, 'GetValue', '', [])
 					text = self.dbusConn.call_blocking(serviceName, path, None, 'GetText', '', [])
 				except dbus.exceptions.DBusException as e:
-					if e.get_dbus_name() == 'org.freedesktop.DBus.Error.UnknownObject':
-						logger.debug("%s %s does not exist (yet)" % (serviceName, path))
-						value = None
-						text = None
-					else:
-						raise
+					if e.get_dbus_name() == 'org.freedesktop.DBus.Error.ServiceUnknown' or \
+							e.get_dbus_name() == 'org.freedesktop.DBus.Error.Disconnected':
+						raise  # service will be ignored
+					logger.debug("%s %s does not exist (yet)" % (serviceName, path))
+					value = None
+					text = None
+
 
 			service['paths'][path] = [unwrap_dbus_value(value), unwrap_dbus_value(text), options]
 
