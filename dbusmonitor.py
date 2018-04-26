@@ -199,12 +199,16 @@ class DbusMonitor(object):
 					value = self.dbusConn.call_blocking(serviceName, path, None, 'GetValue', '', [])
 					text = self.dbusConn.call_blocking(serviceName, path, None, 'GetText', '', [])
 				except dbus.exceptions.DBusException as e:
-					if e.get_dbus_name() == 'org.freedesktop.DBus.Error.UnknownObject':
-						logger.debug("%s %s does not exist (yet)" % (serviceName, path))
-						value = None
-						text = None
-					else:
-						raise
+					if e.get_dbus_name() in (
+							'org.freedesktop.DBus.Error.ServiceUnknown',
+							'org.freedesktop.DBus.Error.Disconnected'):
+						raise # This exception will be handled below
+
+					# TODO org.freedesktop.DBus.Error.UnknownMethod really
+					# shouldn't happen but sometimes does.
+					logger.debug("%s %s does not exist (yet)" % (serviceName, path))
+					value = None
+					text = None
 
 			service['paths'][path] = [unwrap_dbus_value(value), unwrap_dbus_value(text), options]
 
