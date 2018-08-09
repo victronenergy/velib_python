@@ -161,6 +161,8 @@ class DbusMonitor(object):
 			di = 0
 		elif serviceName == 'com.victronenergy.settings':
 			di = 0
+		elif serviceName.startswith('com.victronenergy.vecan.'):
+			di = 0
 		else:
 			try:
 				di = self.dbusConn.call_blocking(serviceName,
