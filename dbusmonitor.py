@@ -246,7 +246,11 @@ class DbusMonitor(object):
 			return
 
 		a[0] = changes['Value']
-		a[1] = changes['Text']
+		try:
+			a[1] = changes['Text']
+		except KeyError:
+			# Some services don't send Text with their PropertiesChanged events.
+			a[1] = str(a[0])
 
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
