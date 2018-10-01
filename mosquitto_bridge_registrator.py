@@ -63,6 +63,7 @@ class MosquittoBridgeRegistrator(object):
 
 	def __init__(self, system_id, restart_mosquitto=True):
 		self._init_broker_timer = None
+		self._aborted = threading.Event()
 		self._client_id = None
 		self._system_id = system_id
 		self._global_broker_username = "ccgxapikey_" + self._system_id
@@ -74,17 +75,24 @@ class MosquittoBridgeRegistrator(object):
 		if self._init_broker_timer is not None:
 			return
 		if self._init_broker(quiet=False, timeout=5):
-			logging.info("[InitBroker] Registration failed. Retrying in thread, silently.")
-			logging.getLogger("requests").setLevel(logging.WARNING)
-			# Not using gobject to keep these blocking operations out of the event loop
-			self._init_broker_timer = RepeatingTimer(self._init_broker, 60)
-			self._init_broker_timer.start()
+			if not self._aborted.is_set():
+				logging.info("[InitBroker] Registration failed. Retrying in thread, silently.")
+				logging.getLogger("requests").setLevel(logging.WARNING)
+				# Not using gobject to keep these blocking operations out of the event loop
+				self._init_broker_timer = RepeatingTimer(self._init_broker, 60)
+				self._init_broker_timer.start()
+
+	def abort_gracefully(self):
+		self._aborted.set()
+		if self._init_broker_timer:
+			self._init_broker_timer.stop()
+			self._init_broker_timer.join()
 
 	@property
 	def client_id(self):
 		return self._client_id
 
-	def _init_broker(self, quiet=True, timeout=30):
+	def _init_broker(self, quiet=True, timeout=5):
 		try:
 			with open(LockFilePath, "a") as lockFile:
 				fcntl.flock(lockFile, fcntl.LOCK_EX)
