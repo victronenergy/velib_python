@@ -91,6 +91,8 @@ class MosquittoBridgeRegistrator(object):
 				logging.info("Writing new {}".format(MqttPasswordFile))
 				password = get_random_string(32)
 				f.write(password)
+				f.flush()
+				os.fsync(f.fileno())
 				return password
 
 	def register(self):
@@ -160,6 +162,8 @@ class MosquittoBridgeRegistrator(object):
 								os.makedirs(config_dir)
 							with open(BridgeConfigPath, 'wt') as out_file:
 								out_file.write(config)
+								out_file.flush()
+								os.fsync(out_file.fileno())
 							self._restart_broker()
 						self._init_broker_timer = None
 						logging.getLogger("requests").setLevel(self._requests_log_level)
