@@ -1,6 +1,7 @@
 import dbus
 import logging
 import time
+from functools import partial
 
 # Local imports
 from vedbus import VeDbusItemImport
@@ -39,7 +40,6 @@ class SettingsDevice(object):
 		self._bus = bus
 		self._dbus_name = name
 		self._eventCallback = eventCallback
-		self._supportedSettings = supportedSettings
 		self._values = {} # stored the values, used to pass the old value along on a setting change
 		self._settings = {}
 
@@ -54,10 +54,10 @@ class SettingsDevice(object):
 			time.sleep(1)
 
 		# Add the items.
-		for setting, options in self._supportedSettings.items():
+		for setting, options in supportedSettings.items():
 			silent = len(options) > SILENT and options[SILENT]
 			busitem = self.addSetting(options[PATH], options[VALUE],
-				options[MINIMUM], options[MAXIMUM], silent, self.handleChangedSetting)
+				options[MINIMUM], options[MAXIMUM], silent, partial(self.handleChangedSetting, setting))
 			self._settings[setting] = busitem
 			self._values[setting] = busitem.get_value()
 
@@ -92,18 +92,7 @@ class SettingsDevice(object):
 
 		return busitem
 
-
-	def handleChangedSetting(self, servicename, path, changes):
-		# TODO: yes yes, below loop is a bit stupid. But as it won't happen often, why would we
-		# TODO: keep a second dictionary just for this?
-		setting = None
-		for s, options in self._supportedSettings.items():
-			if options[PATH] == path:
-				setting = s
-				break
-
-		assert setting is not None
-
+	def handleChangedSetting(self, setting, servicename, path, changes):
 		oldvalue = self._values[setting]
 		self._values[setting] = changes['Value']
 
