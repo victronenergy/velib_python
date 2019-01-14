@@ -55,37 +55,43 @@ class SettingsDevice(object):
 
 		# Add the items.
 		for setting, options in self._supportedSettings.items():
-			busitem = VeDbusItemImport(self._bus, self._dbus_name, options[PATH], self.handleChangedSetting)
 			silent = len(options) > SILENT and options[SILENT]
-			if busitem.exists and busitem._proxy.GetSilent() == silent:
-				logging.debug("Setting %s found" % options[PATH])
-			else:
-				logging.info("Setting %s does not exist yet or must be adjusted" % options[PATH])
-
-				# Prepare to add the setting.
-				path = options[PATH].replace('/Settings/', '', 1)
-				value = options[VALUE]
-				if type(value) == int or type(value) == dbus.Int16 or type(value) == dbus.Int32 or type(value) == dbus.Int64:
-					itemType = 'i'
-				elif type(value) == float or type(value) == dbus.Double:
-					itemType = 'f'
-				else:
-					itemType = 's'
-
-				# Add the setting
-				# TODO, make an object that inherits VeDbusItemImport, and complete the D-Bus settingsitem interface
-				settings_item = VeDbusItemImport(self._bus, self._dbus_name, '/Settings', createsignal=False)
-				if silent:
-					settings_item._proxy.AddSilentSetting('', path, value, itemType, options[MINIMUM], options[MAXIMUM])
-				else:
-					settings_item._proxy.AddSetting('', path, value, itemType, options[MINIMUM], options[MAXIMUM])
-
-				busitem = VeDbusItemImport(self._bus, self._dbus_name, options[PATH], self.handleChangedSetting)
-
+			busitem = self.addSetting(options[PATH], options[VALUE],
+				options[MINIMUM], options[MAXIMUM], silent, self.handleChangedSetting)
 			self._settings[setting] = busitem
 			self._values[setting] = busitem.get_value()
 
 		logging.debug("===== Settings device init finished =====")
+
+	def addSetting(self, path, value, _min, _max, silent=False, callback=None):
+		busitem = VeDbusItemImport(self._bus, self._dbus_name, path, callback)
+		if busitem.exists and busitem._proxy.GetSilent() == silent:
+			logging.debug("Setting %s found" % path)
+		else:
+			logging.info("Setting %s does not exist yet or must be adjusted" % path)
+
+			# Prepare to add the setting. Most dbus types extend the python
+			# type so it is only necessary to additionally test for Int64.
+			if isinstance(value, (int, dbus.Int64)):
+				itemType = 'i'
+			elif isinstance(value, float):
+				itemType = 'f'
+			else:
+				itemType = 's'
+
+			# Add the setting
+			# TODO, make an object that inherits VeDbusItemImport, and complete the D-Bus settingsitem interface
+			settings_item = VeDbusItemImport(self._bus, self._dbus_name, '/Settings', createsignal=False)
+			setting_path = path.replace('/Settings/', '', 1)
+			if silent:
+				settings_item._proxy.AddSilentSetting('', setting_path, value, itemType, _min, _max)
+			else:
+				settings_item._proxy.AddSetting('', setting_path, value, itemType, _min, _max)
+
+			busitem = VeDbusItemImport(self._bus, self._dbus_name, path, callback)
+
+		return busitem
+
 
 	def handleChangedSetting(self, servicename, path, changes):
 		# TODO: yes yes, below loop is a bit stupid. But as it won't happen often, why would we
