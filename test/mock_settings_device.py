@@ -12,6 +12,10 @@ class MockSettingsDevice(object):
         self._settings = supported_settings
         self._event_callback = event_callback
 
+    def addSetting(self, path, value, _min, _max, silent=False, callback=None):
+        from mock_dbus_monitor import MockImportItem
+        return MockImportItem(value)
+
     def get_short_name(self, path):
         for k,v in self._settings.items():
             if v[PATH] == path:
