@@ -3,6 +3,7 @@
 from traceback import print_exc
 from os import _exit as os_exit
 from os import statvfs
+import subprocess
 import logging
 import dbus
 logger = logging.getLogger(__name__)
@@ -40,6 +41,14 @@ def get_vrm_portal_id():
 
 	if __vrm_portal_id:
 		return __vrm_portal_id
+
+	# First try the method that works if we don't have a data partition. This will fail
+	# when the current user is not root.
+	try:
+		__vrm_portal_id = subprocess.check_output("/sbin/get-unique-id").strip()
+		return __vrm_portal_id
+	except OSError:
+		pass
 
 	# Attempt to get the id from /data/venus/unique-id where venus puts it
 	# on startup.
