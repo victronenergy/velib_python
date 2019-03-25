@@ -307,6 +307,23 @@ class DbusMonitor(object):
 				   method='SetValue', signature=None,
 				   args=[wrap_dbus_value(value)])
 
+	# Similar to set_value, but operates asynchronously
+	def set_value_async(self, serviceName, objectPath, value,
+			reply_handler=None, error_handler=None):
+		service = self.servicesByName.get(serviceName, None)
+		if service is not None:
+			if objectPath in service['paths']:
+				self.dbusConn.call_async(serviceName, objectPath,
+					dbus_interface='com.victronenergy.BusItem',
+					method='SetValue', signature=None,
+					args=[wrap_dbus_value(value)],
+					reply_handler=reply_handler, error_handler=error_handler)
+				return
+
+		if error_handler is not None:
+			error_handler(TypeError('Service or path not found, '
+						'service=%s, path=%s' % (serviceName, objectPath)))
+
 	# returns a dictionary, keys are the servicenames, value the instances
 	# optionally use the classfilter to get only a certain type of services, for
 	# example com.victronenergy.battery.

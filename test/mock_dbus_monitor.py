@@ -77,6 +77,20 @@ class MockDbusMonitor(object):
             self._value_changed_callback(serviceName, objectPath, None, None, None)
         return 0
 
+    def set_value_async(self, serviceName, objectPath, value,
+            reply_handler=None, error_handler=None):
+        item = self._get_item(serviceName, objectPath)
+
+        if item is not None:
+            item.set_value(value)
+            if reply_handler is not None:
+                reply_handler(0)
+            return
+
+        if error_handler is not None:
+            error_handler(TypeError('Service or path not found, '
+                        'service=%s, path=%s' % (serviceName, objectPath)))
+
     def add_service(self, service, values):
         if service in self._services:
             raise Exception('Service already exists: {}'.format(service))
