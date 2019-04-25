@@ -122,15 +122,57 @@ def get_load_averages():
 	return c.split(' ')[:3]
 
 
-# Returns False if it cannot find a machine name. Otherwise returns the string
+def _get_sysfs_machine_name():
+	try:
+		with open('/sys/firmware/devicetree/base/model', 'r') as f:
+			return f.read().rstrip('\x00')
+	except IOError:
+		pass
+
+	return None
+
+# Returns None if it cannot find a machine name. Otherwise returns the string
 # containing the name
 def get_machine_name():
-	c = read_file('/proc/device-tree/model')
+	# First try calling the venus utility script
+	try:
+		return check_output("/usr/bin/product-name").strip()
+	except (CalledProcessError, OSError):
+		pass
 
-	if c != False:
-		return c.strip('\x00')
+	# Fall back to sysfs
+	name = _get_sysfs_machine_name()
+	if name is not None:
+		return name
 
-	return read_file('/etc/venus/machine')
+	# Fall back to venus build machine name
+	try:
+		with open('/etc/venus/machine', 'r') as f:
+			return f.read().strip()
+	except IOError:
+		pass
+
+	return None
+
+
+def get_machine_id():
+	""" Find the machine ID and return it. """
+
+	# First try calling the venus utility script
+	try:
+		return check_output("/usr/bin/product-id").strip()
+	except (CalledProcessError, OSError):
+		pass
+
+	# Fall back machine name mechanism
+	name = _get_sysfs_machine_name()
+	return {
+		'Color Control GX': 'C001',
+		'Venus GX': 'C002',
+		'Octo GX': 'C006',
+		'EasySolar-II': 'C007',
+		'MultiPlus-II': 'C008'
+	}.get(name, 'C003') # C003 is Generic
 
 
 # Returns False if it cannot open the file. Otherwise returns its rstripped contents
