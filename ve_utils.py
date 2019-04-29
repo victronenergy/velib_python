@@ -155,7 +155,7 @@ def get_machine_name():
 	return None
 
 
-def get_machine_id():
+def get_product_id():
 	""" Find the machine ID and return it. """
 
 	# First try calling the venus utility script
