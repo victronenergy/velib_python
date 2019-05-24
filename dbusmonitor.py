@@ -140,7 +140,7 @@ class DbusMonitor(object):
 		# raises, check process_name_owner_changed, and D-Bus workings.
 		assert serviceName not in self.servicesByName
 
-		service = {'name': serviceName, 'paths': {}}
+		service = {'name': serviceName, 'paths': {}, 'seen': {}}
 
 		# create the empty list items.
 		whentologoptions = ['configChange', 'onIntervalAlwaysAndOnEvent', 'onIntervalOnlyWhenChanged',
@@ -195,10 +195,13 @@ class DbusMonitor(object):
 			# Try to obtain the value we want from our bulk fetch. If we
 			# cannot find it there, do an individual query.
 			value = values.get(path[1:], notfound)
+			if value != notfound:
+				service['seen'][path] = True
 			text = texts.get(path[1:], notfound)
 			if value is notfound or text is notfound:
 				try:
 					value = self.dbusConn.call_blocking(serviceName, path, None, 'GetValue', '', [])
+					service['seen'][path] = True
 					text = self.dbusConn.call_blocking(serviceName, path, None, 'GetText', '', [])
 				except dbus.exceptions.DBusException as e:
 					if e.get_dbus_name() in (
@@ -252,6 +255,8 @@ class DbusMonitor(object):
 			# Some services don't send Text with their PropertiesChanged events.
 			a[1] = str(a[0])
 
+		service['seen'][path] = True
+
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
 			idle_add(exit_on_error, self._execute_value_changes, service['name'], path, changes, a[2])
@@ -279,14 +284,26 @@ class DbusMonitor(object):
 
 		return value[0]
 
+	# returns if a dbus exists now, by doing a blocking dbus call.
+	# Typically seen will be sufficient and doesn't need access to the dbus.
 	def exists(self, serviceName, objectPath):
 		try:
-			# @todo EV There must be a better way of doing this. Maybe just say an item exists whenever we
-			# receive a PropertiesChanged or a previous GetValue call succeeded. Problem with this solution
-			# is that we won't notice if a path is removed from the service.
 			self.dbusConn.call_blocking(serviceName, objectPath, None, 'GetValue', '', [])
 			return True
 		except dbus.exceptions.DBusException as e:
+			return False
+
+	# Returns if there ever was a successful GetValue or valueChanged event.
+	# Unlike get_value this return True also if the actual value is invalid.
+	#
+	# Note: the path might no longer exists anymore, but that doesn't happen in
+	# practice. If a service really wants to reconfigure itself typically it should
+	# reconnect to the dbus which causes it to be rescanned and seen will be updated.
+	# If it is really needed to know if a path still exists, use exists.
+	def seen(self, serviceName, objectPath):
+		try:
+			return self.servicesByName[serviceName]['seen'][objectPath]
+		except:
 			return False
 
 	# Sets the value for a certain servicename and path, returns the return value of the D-Bus SetValue
