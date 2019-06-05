@@ -47,6 +47,9 @@ class MockDbusMonitor(object):
             return False
         return True
 
+    def seen(self, serviceName, objectPath):
+        return self.exists(serviceName, objectPath)
+
     # returns a dictionary, keys are the servicenames, value the instances
     # optionally use the classfilter to get only a certain type of services, for
     # example com.victronenergy.battery.
@@ -81,7 +84,7 @@ class MockDbusMonitor(object):
             reply_handler=None, error_handler=None):
         item = self._get_item(serviceName, objectPath)
 
-        if item is not None:
+        if item is not None and item.exists:
             item.set_value(value)
             if reply_handler is not None:
                 reply_handler(0)

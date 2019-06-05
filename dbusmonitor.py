@@ -303,7 +303,7 @@ class DbusMonitor(object):
 	def seen(self, serviceName, objectPath):
 		try:
 			return self.servicesByName[serviceName]['seen'][objectPath]
-		except:
+		except KeyError:
 			return False
 
 	# Sets the value for a certain servicename and path, returns the return value of the D-Bus SetValue

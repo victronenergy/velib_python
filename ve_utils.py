@@ -20,7 +20,7 @@ def exit_on_error(func, *args, **kwargs):
 		return func(*args, **kwargs)
 	except:
 		try:
-			print 'exit_on_error: there was an exception. Printing stacktrace will be tryed and then exit'
+			print 'exit_on_error: there was an exception. Printing stacktrace will be tried and then exit'
 			print_exc()
 		except:
 			pass
