@@ -79,12 +79,13 @@ def main():
     DBusGMainLoop(set_as_default=True)
 
     pvac_output = DbusDummyService(
-        servicename='com.victronenergy.pvinverter.output',
+        servicename='com.victronenergy.dummyservice.ttyO1',
         deviceinstance=0,
         paths={
             '/Ac/Energy/Forward': {'initial': 0, 'update': 1},
             '/Position': {'initial': 0, 'update': 0},
-            '/Nonupdatingvalue/UseForTestingWritesForExample': {'initial': None}
+            '/Nonupdatingvalue/UseForTestingWritesForExample': {'initial': None},
+            '/DbusInvalid': {'initial': None}
         })
 
     logging.info('Connected to dbus, and switching over to gobject.MainLoop() (= event based)')

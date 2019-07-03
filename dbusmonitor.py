@@ -420,6 +420,15 @@ def nameownerchange(a, b):
 	print len(objects)
 
 
+def print_values(dbusmonitor):
+	a = dbusmonitor.get_value('wrongservice', '/DbusInvalid', default_value=1000)
+	b = dbusmonitor.get_value('com.victronenergy.dummyservice.ttyO1', '/NotInTheMonitorList', default_value=1000)
+	c = dbusmonitor.get_value('com.victronenergy.dummyservice.ttyO1', '/DbusInvalid', default_value=1000)
+	d = dbusmonitor.get_value('com.victronenergy.dummyservice.ttyO1', '/NonExistingButMonitored', default_value=1000)
+
+	print "All should be 1000: Wrong Service: %s, NotInTheMonitorList: %s, DbusInvalid: %s, NonExistingButMonitored: %s" % (a, b, c, d)
+	return True
+
 # We have a mainloop, but that is just for developing this code. Normally above class & code is used from
 # some other class, such as vrmLogger or the pubsub Implementation.
 def main():
@@ -434,15 +443,29 @@ def main():
 	import sys
 	sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../../'))
 
-	import datalist   # from the dbus_vrm repository
-	d = DbusMonitor(datalist.vrmtree, value_changed_on_dbus,
+	dummy = {'code': None, 'whenToLog': 'configChange', 'accessLevel': None}
+	monitorlist = {'com.victronenergy.dummyservice': {
+				'/Connected': dummy,
+				'/ProductName': dummy,
+				'/Mgmt/Connection': dummy,
+				'/Dc/0/Voltage': dummy,
+				'/Dc/0/Current': dummy,
+				'/Dc/0/Temperature': dummy,
+				'/Load/I': dummy,
+				'/FirmwareVersion': dummy,
+				'/DbusInvalid': dummy,
+				'/NonExistingButMonitored': dummy}}
+
+	d = DbusMonitor(monitorlist, value_changed_on_dbus,
 		deviceAddedCallback=nameownerchange, deviceRemovedCallback=nameownerchange)
 
-	logger.info("==configchange values==")
-	logger.info(pprint.pformat(d.get_values(['configChange'])))
+	# logger.info("==configchange values==")
+	# logger.info(pprint.pformat(d.get_values(['configChange'])))
 
-	logger.info("==onIntervalAlways and onIntervalOnlyWhenChanged==")
-	logger.info(pprint.pformat(d.get_values(['onIntervalAlways', 'onIntervalAlwaysAndOnEvent'])))
+	# logger.info("==onIntervalAlways and onIntervalOnlyWhenChanged==")
+	# logger.info(pprint.pformat(d.get_values(['onIntervalAlways', 'onIntervalAlwaysAndOnEvent'])))
+
+	gobject.timeout_add(1000, print_values, d)
 
 	# Start and run the mainloop
 	logger.info("Starting mainloop, responding on only events")
