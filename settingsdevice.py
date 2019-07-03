@@ -93,7 +93,7 @@ class SettingsDevice(object):
 		return busitem
 
 	def handleChangedSetting(self, setting, servicename, path, changes):
-		oldvalue = self._values[setting]
+		oldvalue = self._values[setting] if setting in self._values else None
 		self._values[setting] = changes['Value']
 
 		if self._eventCallback is None:
