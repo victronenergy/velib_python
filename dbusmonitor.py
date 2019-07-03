@@ -271,15 +271,18 @@ class DbusMonitor(object):
 			options, changes, self.get_device_instance(serviceName))
 
 	# Gets the value for a certain servicename and path
-	# returns the default_value when either the requested service and objectPath combination does not exist,
-	# or when its value is INVALID
+	# The default_value is returned when:
+	# 1. When the service doesn't exist.
+	# 2. When the path asked for isn't being monitored.
+	# 3. When the path exists, but has dbus-invalid, ie an empty byte array.
+	# 4. When the path asked for is being monitored, but doesn't exist for that service.
 	def get_value(self, serviceName, objectPath, default_value=None):
 		service = self.servicesByName.get(serviceName, None)
 		if service is None:
 			return default_value
 
 		value = service['paths'].get(objectPath, None)
-		if value is None:
+		if value is None or value[0] is None:
 			return default_value
 
 		return value[0]
