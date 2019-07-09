@@ -101,6 +101,10 @@ class SettingsDevice(object):
 
 		self._eventCallback(setting, oldvalue, changes['Value'])
 
+	def getVrmDeviceInstance(self, ident, devclass, pref):
+		mapper = VeDbusItemImport(self._bus, self._dbus_name, '/Services/VrmDeviceInstances', createsignal=False)
+		return mapper._proxy.GetVrmDeviceInstance(ident, devclass, pref)
+
 	def __getitem__(self, setting):
 		return self._settings[setting].get_value()
 
