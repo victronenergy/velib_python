@@ -26,6 +26,7 @@ import argparse
 import pprint
 import traceback
 import os
+from collections import defaultdict
 
 # our own packages
 from vedbus import VeDbusItemExport, VeDbusItemImport
@@ -106,6 +107,9 @@ class DbusMonitor(object):
 		# Same values as self.servicesByName, but indexed by service id (eg. :1.30)
 		self.servicesById = {}
 
+		# Keep track of services by class to speed up calls to get_service_list
+		self.servicesByClass = defaultdict(list)
+
 		# For a PC, connect to the SessionBus
 		# For a CCGX, connect to the SystemBus
 		self.dbusConn = SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else SystemBus()
@@ -150,6 +154,7 @@ class DbusMonitor(object):
 			deviceInstance = service['deviceInstance']
 			del self.servicesById[service.id]
 			del self.servicesByName[name]
+			self.servicesByClass[service.service_class].remove(service)
 			if self.deviceRemovedCallback is not None:
 				self.deviceRemovedCallback(name, deviceInstance)
 
@@ -257,6 +262,7 @@ class DbusMonitor(object):
 		# data if an exception occurs during the scan.
 		self.servicesByName[serviceName] = service
 		self.servicesById[serviceId] = service
+		self.servicesByClass[service.service_class].append(service)
 
 		return True
 
@@ -378,15 +384,15 @@ class DbusMonitor(object):
 	# optionally use the classfilter to get only a certain type of services, for
 	# example com.victronenergy.battery.
 	def get_service_list(self, classfilter=None):
-		r = {}
-		if classfilter is not None:
-			class_as_list = classfilter.split('.')[0:3]
+		if classfilter is None:
+			return { servicename: service.deviceInstance \
+				for servicename, service in self.servicesByName.iteritems() }
 
-		for servicename in self.servicesByName:
-			if classfilter is None or servicename.split('.')[0:3] == class_as_list:
-				r[servicename] = self.get_device_instance(servicename)
+		if classfilter not in self.servicesByClass:
+			return {}
 
-		return r
+		return { service.name: service.deviceInstance \
+			for service in self.servicesByClass[classfilter] }
 
 	def get_device_instance(self, serviceName):
 		return self.servicesByName[serviceName].deviceInstance
