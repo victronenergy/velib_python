@@ -42,6 +42,50 @@ class SessionBus(dbus.bus.BusConnection):
 	def __new__(cls):
 		return dbus.bus.BusConnection.__new__(cls, dbus.bus.BusConnection.TYPE_SESSION)
 
+class MonitoredValue(object):
+	def __init__(self, value, text, options):
+		super(MonitoredValue, self).__init__()
+		self.value = value
+		self.text = text
+		self.options = options
+
+	# For legacy code, allow treating this as a tuple/list
+	def __iter__(self):
+		return iter((self.value, self.text, self.options))
+
+class Service(object):
+	whentologoptions = ['configChange', 'onIntervalAlwaysAndOnEvent',
+		'onIntervalOnlyWhenChanged', 'onIntervalAlways']
+	def __init__(self, id, serviceName, deviceInstance):
+		super(Service, self).__init__()
+		self.id = id
+		self.name = serviceName
+		self.paths = {}
+		self._seen = set()
+		self.deviceInstance = deviceInstance
+
+		self.configChange = []
+		self.onIntervalAlwaysAndOnEvent = []
+		self.onIntervalOnlyWhenChanged = []
+		self.onIntervalAlways = []
+
+	# For legacy code, attributes can still be accessed as if keys from a
+	# dictionary.
+	def __setitem__(self, key, value):
+		self.__dict__[key] = value
+	def __getitem__(self, key):
+		return self.__dict__[key]
+
+	def set_seen(self, path):
+		self._seen.add(path)
+
+	def seen(self, path):
+		return path in self._seen
+
+	@property
+	def service_class(self):
+		return '.'.join(self.name.split('.')[:3])
+
 class DbusMonitor(object):
 	## Constructor
 	def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
@@ -104,7 +148,7 @@ class DbusMonitor(object):
 			logger.info("%s disappeared from the dbus. Removing it from our lists" % name)
 			service = self.servicesByName[name]
 			deviceInstance = service['deviceInstance']
-			del self.servicesById[service['id']]
+			del self.servicesById[service.id]
 			del self.servicesByName[name]
 			if self.deviceRemovedCallback is not None:
 				self.deviceRemovedCallback(name, deviceInstance)
@@ -135,24 +179,11 @@ class DbusMonitor(object):
 			return False
 
 		logger.info("Found: %s, scanning and storing items" % serviceName)
+		serviceId = self.dbusConn.get_name_owner(serviceName)
 
 		# we should never be notified to add a D-Bus service that we already have. If this assertion
 		# raises, check process_name_owner_changed, and D-Bus workings.
 		assert serviceName not in self.servicesByName
-
-		service = {'name': serviceName, 'paths': {}, 'seen': {}}
-
-		# create the empty list items.
-		whentologoptions = ['configChange', 'onIntervalAlwaysAndOnEvent', 'onIntervalOnlyWhenChanged',
-						'onIntervalAlways']
-
-		# these lists will contain the VeDbusItemImport objects with that whenToLog setting. Used to
-		for whentolog in whentologoptions:
-			service[whentolog] = []
-
-		serviceId = self.dbusConn.get_name_owner(serviceName)
-		service['id'] = serviceId
-
 		assert serviceId not in self.servicesById
 
 		# for vebus.ttyO1, this is workaround, since VRM Portal expects the main vebus
@@ -173,9 +204,8 @@ class DbusMonitor(object):
 			else:
 				di = int(di)
 
-		service['deviceInstance'] = di
-
 		logger.info("       %s has device instance %s" % (serviceName, di))
+		service = Service(serviceId, serviceName, di)
 
 		# Let's try to fetch everything in one go
 		values = {}
@@ -190,18 +220,18 @@ class DbusMonitor(object):
 			# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
 			# options will be a dictionary: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
 			# check that the whenToLog setting is set to something we expect
-			assert options['whenToLog'] is None or options['whenToLog'] in whentologoptions
+			assert options['whenToLog'] is None or options['whenToLog'] in Service.whentologoptions
 
 			# Try to obtain the value we want from our bulk fetch. If we
 			# cannot find it there, do an individual query.
 			value = values.get(path[1:], notfound)
 			if value != notfound:
-				service['seen'][path] = True
+				service.set_seen(path)
 			text = texts.get(path[1:], notfound)
 			if value is notfound or text is notfound:
 				try:
 					value = self.dbusConn.call_blocking(serviceName, path, None, 'GetValue', '', [])
-					service['seen'][path] = True
+					service.set_seen(path)
 					text = self.dbusConn.call_blocking(serviceName, path, None, 'GetText', '', [])
 				except dbus.exceptions.DBusException as e:
 					if e.get_dbus_name() in (
@@ -215,7 +245,7 @@ class DbusMonitor(object):
 					value = None
 					text = None
 
-			service['paths'][path] = [unwrap_dbus_value(value), unwrap_dbus_value(text), options]
+			service.paths[path] = MonitoredValue(unwrap_dbus_value(value), unwrap_dbus_value(text), options)
 
 			if options['whenToLog']:
 				service[options['whenToLog']].append(path)
@@ -233,7 +263,7 @@ class DbusMonitor(object):
 	def handler_value_changes(self, changes, path, senderId):
 		try:
 			service = self.servicesById[senderId]
-			a = service['paths'][path]
+			a = service.paths[path]
 		except KeyError:
 			# Either senderId or path isn't there, which means
 			# it hasn't been scanned yet.
@@ -245,21 +275,21 @@ class DbusMonitor(object):
 
 		# First update our store to the new value
 		changes['Value'] = unwrap_dbus_value(changes['Value'])
-		if a[0] == changes['Value']:
+		if a.value == changes['Value']:
 			return
 
-		a[0] = changes['Value']
+		a.value = changes['Value']
 		try:
-			a[1] = changes['Text']
+			a.text = changes['Text']
 		except KeyError:
 			# Some services don't send Text with their PropertiesChanged events.
-			a[1] = str(a[0])
+			a.text = str(a.value)
 
-		service['seen'][path] = True
+		service.set_seen(path)
 
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
-			idle_add(exit_on_error, self._execute_value_changes, service['name'], path, changes, a[2])
+			idle_add(exit_on_error, self._execute_value_changes, service.name, path, changes, a.options)
 
 	def _execute_value_changes(self, serviceName, objectPath, changes, options):
 		# double check that the service still exists, as it might have
@@ -281,11 +311,11 @@ class DbusMonitor(object):
 		if service is None:
 			return default_value
 
-		value = service['paths'].get(objectPath, None)
-		if value is None or value[0] is None:
+		value = service.paths.get(objectPath, None)
+		if value is None or value.value is None:
 			return default_value
 
-		return value[0]
+		return value.value
 
 	# returns if a dbus exists now, by doing a blocking dbus call.
 	# Typically seen will be sufficient and doesn't need access to the dbus.
@@ -305,7 +335,7 @@ class DbusMonitor(object):
 	# If it is really needed to know if a path still exists, use exists.
 	def seen(self, serviceName, objectPath):
 		try:
-			return self.servicesByName[serviceName]['seen'][objectPath]
+			return self.servicesByName[serviceName].seen(objectPath)
 		except KeyError:
 			return False
 
@@ -319,7 +349,7 @@ class DbusMonitor(object):
 		service = self.servicesByName.get(serviceName, None)
 		if service is None:
 			return -1
-		if objectPath not in service['paths']:
+		if objectPath not in service.paths:
 			return -1
 		# We do not catch D-Bus exceptions here, because the previous implementation did not do that either.
 		return self.dbusConn.call_blocking(serviceName, objectPath,
@@ -332,7 +362,7 @@ class DbusMonitor(object):
 			reply_handler=None, error_handler=None):
 		service = self.servicesByName.get(serviceName, None)
 		if service is not None:
-			if objectPath in service['paths']:
+			if objectPath in service.paths:
 				self.dbusConn.call_async(serviceName, objectPath,
 					dbus_interface='com.victronenergy.BusItem',
 					method='SetValue', signature=None,
@@ -359,7 +389,7 @@ class DbusMonitor(object):
 		return r
 
 	def get_device_instance(self, serviceName):
-		return self.servicesByName[serviceName]['deviceInstance']
+		return self.servicesByName[serviceName].deviceInstance
 
 	# Parameter categoryfilter is to be a list, containing the categories you want (configChange,
 	# onIntervalAlways, etc).
@@ -385,7 +415,7 @@ class DbusMonitor(object):
 
 			for path in service[category]:
 
-				value, text, options = service['paths'][path]
+				value, text, options = service.paths[path]
 
 				if value is not None:
 
