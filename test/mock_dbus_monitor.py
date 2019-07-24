@@ -1,5 +1,6 @@
 import dbus
-
+from collections import defaultdict
+from functools import partial
 
 # Simulation a DbusMonitor object, without using the D-Bus (intended for unit tests). Instead of changes values
 # on the D-Bus you can use the set_value function. set_value will automatically expand the service list. Note
@@ -10,6 +11,7 @@ class MockDbusMonitor(object):
             deviceRemovedCallback=None, mountEventCallback=None, vebusDeviceInstance0=False):
         self._services = {}
         self._tree = {}
+        self._watches = defaultdict(dict)
         self._value_changed_callback = valueChangedCallback
         self._device_removed_callback = deviceRemovedCallback
         self._device_added_callback = deviceAddedCallback
@@ -78,6 +80,8 @@ class MockDbusMonitor(object):
         item.set_value(value)
         if self._value_changed_callback != None:
             self._value_changed_callback(serviceName, objectPath, None, None, None)
+        if serviceName in self._watches and objectPath in self._watches[serviceName]:
+            self._watches[serviceName][objectPath]({'Value': value, 'Text': str(value)})
         return 0
 
     def set_value_async(self, serviceName, objectPath, value,
@@ -114,6 +118,11 @@ class MockDbusMonitor(object):
         self._services.pop(service)
         if self._device_removed_callback != None:
             self._device_removed_callback(service, instance)
+        if service in self._watches:
+            del self._watches[service]
+
+    def track_value(self, serviceName, objectPath, callback, *args, **kwargs):
+        self._watches[serviceName][objectPath] = partial(callback, *args, **kwargs)
 
     @property
     def dbusConn(self):

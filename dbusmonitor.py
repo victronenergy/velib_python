@@ -27,6 +27,7 @@ import pprint
 import traceback
 import os
 from collections import defaultdict
+from functools import partial
 
 # our own packages
 from vedbus import VeDbusItemExport, VeDbusItemImport
@@ -110,6 +111,9 @@ class DbusMonitor(object):
 		# Keep track of services by class to speed up calls to get_service_list
 		self.servicesByClass = defaultdict(list)
 
+		# Keep track of any additional watches placed on items
+		self.serviceWatches = defaultdict(list)
+
 		# For a PC, connect to the SessionBus
 		# For a CCGX, connect to the SystemBus
 		self.dbusConn = SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else SystemBus()
@@ -154,6 +158,9 @@ class DbusMonitor(object):
 			deviceInstance = service['deviceInstance']
 			del self.servicesById[service.id]
 			del self.servicesByName[name]
+			for watch in self.serviceWatches[name]:
+				watch.remove()
+			del self.serviceWatches[name]
 			self.servicesByClass[service.service_class].remove(service)
 			if self.deviceRemovedCallback is not None:
 				self.deviceRemovedCallback(name, deviceInstance)
@@ -434,6 +441,18 @@ class DbusMonitor(object):
 					result[options['code'] + "[" + str(deviceInstance) + "]"] = value
 
 		return result
+
+	def track_value(self, serviceName, objectPath, callback, *args, **kwargs):
+		""" A DbusMonitor can watch specific service/path combos for changes
+		    so that it is not fully reliant on the global handler_value_changes
+		    in this class. Additional watches are deleted automatically when
+		    the service disappears from dbus. """
+		self.serviceWatches[serviceName].append(
+			self.dbusConn.add_signal_receiver(
+				partial(callback, *args, **kwargs),
+				dbus_interface='com.victronenergy.BusItem',
+				signal_name='PropertiesChanged',
+				path=objectPath, bus_name=serviceName))
 
 
 # ====== ALL CODE BELOW THIS LINE IS PURELY FOR DEVELOPING THIS CLASS ======
