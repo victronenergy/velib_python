@@ -57,7 +57,7 @@ class SettingsDevice(object):
 		for setting, options in supportedSettings.items():
 			silent = len(options) > SILENT and options[SILENT]
 			busitem = self.addSetting(options[PATH], options[VALUE],
-				options[MINIMUM], options[MAXIMUM], silent, partial(self.handleChangedSetting, setting))
+				options[MINIMUM], options[MAXIMUM], silent, callback=partial(self.handleChangedSetting, setting))
 			self._settings[setting] = busitem
 			self._values[setting] = busitem.get_value()
 
@@ -65,7 +65,8 @@ class SettingsDevice(object):
 
 	def addSetting(self, path, value, _min, _max, silent=False, callback=None):
 		busitem = VeDbusItemImport(self._bus, self._dbus_name, path, callback)
-		if busitem.exists and busitem._proxy.GetSilent() == silent:
+		attributes = busitem._proxy.GetAttributes()
+		if busitem.exists and (value, _min, _max, silent) == attributes:
 			logging.debug("Setting %s found" % path)
 		else:
 			logging.info("Setting %s does not exist yet or must be adjusted" % path)
