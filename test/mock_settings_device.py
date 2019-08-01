@@ -4,6 +4,24 @@ MINIMUM = 2
 MAXIMUM = 3
 
 
+class MockSettingsItem(object):
+    def __init__(self, parent, path):
+        self._parent = parent
+        self.path = path
+
+    def get_value(self):
+        setting = 'addSetting'+self.path
+        if setting in self._parent._settings:
+            return self._parent[setting]
+        return None
+
+    def set_value(self, value):
+        self._parent['addSetting'+self.path] = value
+
+    @property
+    def exists(self):
+        return 'addSetting'+self.path in self._parent._settings
+
 # Simulates the SettingsSevice object without using the D-Bus (intended for unit tests). Values passed to
 # __setitem__ (or the [] operator) will be stored in memory for later retrieval by __getitem__.
 class MockSettingsDevice(object):
@@ -13,8 +31,10 @@ class MockSettingsDevice(object):
         self._event_callback = event_callback
 
     def addSetting(self, path, value, _min, _max, silent=False, callback=None):
-        from mock_dbus_monitor import MockImportItem
-        return MockImportItem(value)
+        # Persist in our settings stash so the settings is available through
+        # the mock item
+        self._settings['addSetting'+path] = [path, value, _min, _max, silent]
+        return MockSettingsItem(self, path)
 
     def get_short_name(self, path):
         for k,v in self._settings.items():
