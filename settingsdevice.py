@@ -65,8 +65,7 @@ class SettingsDevice(object):
 
 	def addSetting(self, path, value, _min, _max, silent=False, callback=None):
 		busitem = VeDbusItemImport(self._bus, self._dbus_name, path, callback)
-		attributes = busitem._proxy.GetAttributes()
-		if busitem.exists and (value, _min, _max, silent) == attributes:
+		if busitem.exists and (value, _min, _max, silent) == busitem._proxy.GetAttributes():
 			logging.debug("Setting %s found" % path)
 		else:
 			logging.info("Setting %s does not exist yet or must be adjusted" % path)
