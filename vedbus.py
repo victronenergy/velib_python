@@ -268,6 +268,11 @@ class VeDbusItemImport(object):
 
 		return r
 
+	## Resets the item to its default value
+	def set_default(self):
+		self._proxy.SetDefault()
+		self._refreshcachedvalue()
+
 	## Returns the text representation of the value.
 	# For example when the value is an enum/int GetText might return the string
 	# belonging to that enum value. Another example, for a voltage, GetValue
