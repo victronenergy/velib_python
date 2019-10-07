@@ -101,6 +101,10 @@ class SettingsDevice(object):
 
 		self._eventCallback(setting, oldvalue, changes['Value'])
 
+	def setDefault(self, path):
+                item = VeDbusItemImport(self._bus, self._dbus_name, path, createsignal=False)
+                item.set_default()
+
 	def __getitem__(self, setting):
 		return self._settings[setting].get_value()
 
