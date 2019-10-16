@@ -11,6 +11,7 @@ class MockDbusMonitor(object):
             deviceRemovedCallback=None, mountEventCallback=None, vebusDeviceInstance0=False):
         self._services = {}
         self._tree = {}
+        self._seen = defaultdict(set)
         self._watches = defaultdict(dict)
         self._value_changed_callback = valueChangedCallback
         self._device_removed_callback = deviceRemovedCallback
@@ -49,8 +50,11 @@ class MockDbusMonitor(object):
             return False
         return True
 
+    def set_seen(self, serviceName, path):
+        self._seen[serviceName].add(path)
+
     def seen(self, serviceName, objectPath):
-        return self.exists(serviceName, objectPath)
+        return objectPath in self._seen[serviceName]
 
     # returns a dictionary, keys are the servicenames, value the instances
     # optionally use the classfilter to get only a certain type of services, for
@@ -72,12 +76,14 @@ class MockDbusMonitor(object):
             raise Exception('Path not found: {}{} (check dbusTree passed to __init__)'.format(service, path))
         s = self._services.setdefault(service, {})
         s[path] = MockImportItem(value)
+        self.set_seen(service, path)
 
     def set_value(self, serviceName, objectPath, value):
         item = self._get_item(serviceName, objectPath)
         if item is None:
             return -1
         item.set_value(value)
+        self.set_seen(serviceName, objectPath)
         if self._value_changed_callback != None:
             self._value_changed_callback(serviceName, objectPath, None, None, None)
         if serviceName in self._watches and objectPath in self._watches[serviceName]:
