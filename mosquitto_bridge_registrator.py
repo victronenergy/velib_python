@@ -6,10 +6,9 @@ import requests
 import subprocess
 import traceback
 from ve_utils import exit_on_error
-
+VrmNumberOfBrokers = 128
 VrmApiServer = 'https://ccgxlogging.victronenergy.com'
 CaBundlePath = "/etc/ssl/certs/ccgx-ca.pem"
-VrmBroker = 'mqtt.victronenergy.com'
 RpcBroker = 'mqtt-rpc.victronenergy.com'
 SettingsPath = os.environ.get('DBUS_MQTT_PATH') or '/data/conf/mosquitto.d'
 BridgeConfigPath = os.path.join(SettingsPath, 'vrm_bridge.conf')
@@ -62,13 +61,13 @@ class RepeatingTimer(threading.Thread):
 class MosquittoBridgeRegistrator(object):
 	"""
 	The MosquittoBridgeRegistrator manages a bridge connection between the local Mosquitto
-	MQTT server, and the global mqtt.victronenergy.com. It can be called
+	MQTT server, and the global VRM broker. It can be called
 	concurrently by different processes; efforts will be synchronized using an
 	advisory lock file.
 
 	It now also supports registering the API key and getting it and the password without
 	restarting Mosquitto. This allows using the API key, but not use the local broker and
-	instead connect directly to mqtt.victronenergy.com.
+	instead connect directly to the VRM broker url.
 	"""
 
 	def __init__(self, system_id, restart_mosquitto=True):
@@ -80,6 +79,18 @@ class MosquittoBridgeRegistrator(object):
 		self._global_broker_password = None
 		self._restart_mosquitto = restart_mosquitto
 		self._requests_log_level = logging.getLogger("requests").getEffectiveLevel()
+
+	def _get_vrm_broker_url(self):
+		"""To allow scaling, the VRM broker URL is generated based on the system identifier
+		The function returns a numbered broker URL between 0 and VrmNumberOfBrokers, which makes sure
+		that broker connections are distributed equally between all VRM brokers
+		"""
+		sum = 0
+		for character in self._system_id.lower().strip():
+			sum += ord(character)
+		broker_index = sum % VrmNumberOfBrokers
+		return "mqtt{}.victronenergy.com".format(broker_index)
+
 
 	def load_or_generate_mqtt_password(self):
 		"""In case posting the password to storemqttpassword.php was processed
@@ -163,7 +174,7 @@ class MosquittoBridgeRegistrator(object):
 					if r.status_code == requests.codes.ok:
 						config = BridgeSettings.format(self._system_id,
 							self._global_broker_password, self._client_id,
-							VrmBroker, RpcBroker, CaBundlePath,
+							self._get_vrm_broker_url(), RpcBroker, CaBundlePath,
 							self._global_broker_username)
 						# Do we need to adjust the settings file?
 						if config != orig_config:
