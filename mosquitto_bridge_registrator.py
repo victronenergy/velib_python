@@ -107,12 +107,22 @@ class MosquittoBridgeRegistrator(object):
 				password = f.read().strip()
 				return password
 		else:
-			with open(MqttPasswordFile, "w") as f:
+			with open(MqttPasswordFile + ".tmp", "w") as f:
 				logging.info("Writing new {}".format(MqttPasswordFile))
 				password = get_random_string(32)
+
+				# make sure the password is on the disk
 				f.write(password)
 				f.flush()
 				os.fsync(f.fileno())
+
+				os.rename(MqttPasswordFile + ".tmp", MqttPasswordFile)
+
+				# update the directory meta-info
+				fd = os.open(os.path.dirname(MqttPasswordFile), 0)
+				os.fsync(fd)
+				os.close(fd)
+
 				return password
 
 	def register(self):
@@ -182,10 +192,19 @@ class MosquittoBridgeRegistrator(object):
 							config_dir = os.path.dirname(BridgeConfigPath)
 							if not os.path.exists(config_dir):
 								os.makedirs(config_dir)
-							with open(BridgeConfigPath, 'wt') as out_file:
+							with open(BridgeConfigPath + ".tmp", 'wt') as out_file:
+								# make sure the new config is on the disk
 								out_file.write(config)
 								out_file.flush()
 								os.fsync(out_file.fileno())
+
+								# make sure there is either the old file or the new one
+								os.rename(BridgeConfigPath + ".tmp", BridgeConfigPath)
+
+								# update the directory meta-info
+								fd = os.open(config_dir, 0)
+								os.fsync(fd)
+								os.close(fd)
 							self._restart_broker()
 						self._init_broker_timer = None
 						logging.getLogger("requests").setLevel(self._requests_log_level)
