@@ -6,6 +6,7 @@
 import logging
 logger = logging.getLogger(__name__)
 
+import codecs
 import threading
 import subprocess
 from time import sleep
@@ -20,6 +21,8 @@ class StreamCommand(object):
 	def run(self, command, timeout, feedbacksender):
 		self.feedbacksender = feedbacksender
 		self.returncode = None
+		self.utf8_decoder = codecs.getdecoder("utf_8")
+		self.latin1_decoder = codecs.getdecoder("latin1")
 
 		def target():
 			logger.info('Thread started for running %s' % command)
@@ -77,9 +80,14 @@ class StreamCommand(object):
 		while True:
 			self.process.stdout.flush()
 			line = self.process.stdout.readline()
+			try:
+				unicode_line, _ = self.utf8_decoder(line)
+			except UnicodeDecodeError:
+				unicode_line, _ = self.latin1_decoder(line)
+
 			# Max length on pubnub is 1800 chars, and output is much better readable with the bare eye
 			# when sent per line. So no need to send it alltogether.
-			self.feedbacksender.send({"status": "running", "xmloutput": line})
+			self.feedbacksender.send({"status": "running", "xmloutput": unicode_line})
 			if line == '' and self.process.poll() != None:
 				break
 			sleep(0.04)
