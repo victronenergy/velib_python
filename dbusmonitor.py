@@ -16,8 +16,7 @@
 # Code is used by the vrmLogger, and also the pubsub code. Both are other modules in the dbus_vrm repo.
 
 from dbus.mainloop.glib import DBusGMainLoop
-import gobject
-from gobject import idle_add
+from gobjectwrapper import gobject
 import dbus
 import dbus.service
 import inspect
@@ -33,6 +32,11 @@ from functools import partial
 from vedbus import VeDbusItemExport, VeDbusItemImport
 from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value
 notfound = object() # For lookups where None is a valid result
+
+if hasattr(dict, 'iteritems'):
+		iteritems = lambda d: d.iteritems()
+else:
+	iteritems = lambda d: d.items()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -143,7 +147,7 @@ class DbusMonitor(object):
 			return
 
 		#decouple, and process in main loop
-		idle_add(exit_on_error, self._process_name_owner_changed, name, oldowner, newowner)
+		gobject.idle_add(exit_on_error, self._process_name_owner_changed, name, oldowner, newowner)
 
 	def _process_name_owner_changed(self, name, oldowner, newowner):
 		if newowner != '':
@@ -229,7 +233,7 @@ class DbusMonitor(object):
 		except:
 			pass
 
-		for path, options in paths.iteritems():
+		for path, options in iteritems(paths):
 			# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
 			# options will be a dictionary: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
 			# check that the whenToLog setting is set to something we expect
@@ -303,7 +307,7 @@ class DbusMonitor(object):
 
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
-			idle_add(exit_on_error, self._execute_value_changes, service.name, path, changes, a.options)
+			gobject.idle_add(exit_on_error, self._execute_value_changes, service.name, path, changes, a.options)
 
 	def _execute_value_changes(self, serviceName, objectPath, changes, options):
 		# double check that the service still exists, as it might have
@@ -394,7 +398,7 @@ class DbusMonitor(object):
 	def get_service_list(self, classfilter=None):
 		if classfilter is None:
 			return { servicename: service.deviceInstance \
-				for servicename, service in self.servicesByName.iteritems() }
+				for servicename, service in iteritems(self.servicesByName) }
 
 		if classfilter not in self.servicesByClass:
 			return {}
@@ -474,9 +478,9 @@ def nameownerchange(a, b):
 	import gc
 	gc.collect()
 	objects = gc.get_objects()
-	print len([o for o in objects if type(o).__name__ == 'VeDbusItemImport'])
-	print len([o for o in objects if type(o).__name__ == 'SignalMatch'])
-	print len(objects)
+	print (len([o for o in objects if type(o).__name__ == 'VeDbusItemImport']))
+	print (len([o for o in objects if type(o).__name__ == 'SignalMatch']))
+	print (len(objects))
 
 
 def print_values(dbusmonitor):
@@ -485,7 +489,7 @@ def print_values(dbusmonitor):
 	c = dbusmonitor.get_value('com.victronenergy.dummyservice.ttyO1', '/DbusInvalid', default_value=1000)
 	d = dbusmonitor.get_value('com.victronenergy.dummyservice.ttyO1', '/NonExistingButMonitored', default_value=1000)
 
-	print "All should be 1000: Wrong Service: %s, NotInTheMonitorList: %s, DbusInvalid: %s, NonExistingButMonitored: %s" % (a, b, c, d)
+	print ("All should be 1000: Wrong Service: %s, NotInTheMonitorList: %s, DbusInvalid: %s, NonExistingButMonitored: %s" % (a, b, c, d))
 	return True
 
 # We have a mainloop, but that is just for developing this code. Normally above class & code is used from
