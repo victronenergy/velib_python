@@ -41,14 +41,14 @@ class DbusDummyService:
         self._dbusservice.add_path('/HardwareVersion', 0)
         self._dbusservice.add_path('/Connected', 1)
 
-        for path, settings in self._paths.iteritems():
+        for path, settings in self._paths.items():
             self._dbusservice.add_path(
                 path, settings['initial'], writeable=True, onchangecallback=self._handlechangedvalue)
 
         gobject.timeout_add(1000, self._update)
 
     def _update(self):
-        for path, settings in self._paths.iteritems():
+        for path, settings in self._paths.items():
             if 'update' in settings:
                 self._dbusservice[path] = self._dbusservice[path] + settings['update']
                 logging.debug("%s: %s" % (path, self._dbusservice[path]))
@@ -95,5 +95,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

@@ -95,10 +95,10 @@ class VeDbusService(object):
 	# To force immediate deregistering of this dbus service and all its object paths, explicitly
 	# call __del__().
 	def __del__(self):
-		for node in self._dbusnodes.values():
+		for node in list(self._dbusnodes.values()):
 			node.__del__()
 		self._dbusnodes.clear()
-		for item in self._dbusobjects.values():
+		for item in list(self._dbusobjects.values()):
 			item.__del__()
 		self._dbusobjects.clear()
 		if self._dbusname:
@@ -154,7 +154,7 @@ class VeDbusService(object):
 
 	def _item_deleted(self, path):
 		self._dbusobjects.pop(path)
-		for np in self._dbusnodes.keys():
+		for np in list(self._dbusnodes.keys()):
 			if np != '/':
 				for ip in self._dbusobjects:
 					if ip.startswith(np + '/'):

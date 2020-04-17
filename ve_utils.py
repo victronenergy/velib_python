@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import sys
 from traceback import print_exc
 from os import _exit as os_exit
 from os import statvfs
@@ -8,7 +9,17 @@ import logging
 import dbus
 logger = logging.getLogger(__name__)
 
+PY3 = sys.version_info.major >= 3
+
 VEDBUS_INVALID = dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
+
+if PY3:
+	hex = lambda s: s.hex()
+	integer_types = (int,)
+	unicode = str
+else:
+	hex = lambda s: s.encode('hex')
+	integer_types = (int, long)
 
 # Use this function to make sure the code quits on an unexpected exception. Make sure to use it
 # when using gobject.idle_add and also gobject.timeout_add.
@@ -64,10 +75,10 @@ def get_vrm_portal_id():
 	# variable.
 	import fcntl, socket, struct, os
 
-	iface = os.environ.get('VRM_IFACE', 'eth0')
+	iface = os.environ.get('VRM_IFACE', 'eth0').encode('ascii')
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	info = fcntl.ioctl(s.fileno(), 0x8927,  struct.pack('256s', iface[:15]))
-	__vrm_portal_id = ''.join(['%02x' % ord(char) for char in info[18:24]])
+	__vrm_portal_id = hex(info[18:24])
 	return __vrm_portal_id
 
 
@@ -195,14 +206,12 @@ def wrap_dbus_value(value):
 		return dbus.Double(value, variant_level=1)
 	if isinstance(value, bool):
 		return dbus.Boolean(value, variant_level=1)
-	if isinstance(value, int):
+	if isinstance(value, integer_types):
 		try:
 			return dbus.Int32(value, variant_level=1)
 		except OverflowError:
 			return dbus.Int64(value, variant_level=1)
-	if isinstance(value, str):
-		return dbus.String(value, variant_level=1)
-	if isinstance(value, unicode):
+	if isinstance(value, (str, unicode)):
 		return dbus.String(value, variant_level=1)
 	if isinstance(value, list):
 		if len(value) == 0:
@@ -211,8 +220,6 @@ def wrap_dbus_value(value):
 			# an invalid value.
 			return dbus.Array([], signature=dbus.Signature('u'), variant_level=1)
 		return dbus.Array([wrap_dbus_value(x) for x in value], variant_level=1)
-	if isinstance(value, long):
-		return dbus.Int64(value, variant_level=1)
 	if isinstance(value, dict):
 		# Wrapping the keys of the dictionary causes D-Bus errors like:
 		# 'arguments to dbus_message_iter_open_container() were incorrect,
@@ -242,7 +249,7 @@ def unwrap_dbus_value(val):
 	if isinstance(val, dbus.Byte):
 		return int(val)
 	if isinstance(val, dbus.ByteArray):
-		return "".join([str(x) for x in val])
+		return "".join([bytes(x) for x in val])
 	if isinstance(val, (list, tuple)):
 		return [unwrap_dbus_value(x) for x in val]
 	if isinstance(val, (dbus.Dictionary, dict)):
