@@ -23,7 +23,7 @@ def exit_on_error(func, *args, **kwargs):
 		return func(*args, **kwargs)
 	except:
 		try:
-			print 'exit_on_error: there was an exception. Printing stacktrace will be tried and then exit'
+			print ('exit_on_error: there was an exception. Printing stacktrace will be tried and then exit')
 			print_exc()
 		except:
 			pass
@@ -126,7 +126,7 @@ def get_free_space(path):
 	try:
 		s = statvfs(path)
 		result = s.f_frsize * s.f_bavail     # Number of free bytes that ordinary users
-	except Exception, ex:
+	except Exception as ex:
 		logger.info("Error while retrieving free space for path %s: %s" % (path, ex))
 
 	return result
@@ -197,7 +197,7 @@ def read_file(path):
 	try:
 		with open(path, 'r') as f:
 			content = f.read().rstrip()
-	except Exception, ex:
+	except Exception as ex:
 		logger.debug("Error while reading %s: %s" % (path, ex))
 
 	return content
