@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from dbus.mainloop.glib import DBusGMainLoop
-import gobject
 import dbus
 import dbus.service
 import inspect
@@ -13,6 +12,7 @@ import os
 
 # our own packages
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../'))
+from gobjectwrapper import gobject
 from vedbus import VeDbusItemExport
 
 # Dictionary containing all objects exported to dbus
