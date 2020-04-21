@@ -4,8 +4,6 @@
 # Python
 import logging
 import os
-import gobject
-import sqlite3
 import sys
 import unittest
 import subprocess
@@ -17,6 +15,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 
 # Local
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../'))
+from gobjectwrapper import gobject
 from vedbus import VeDbusService, VeDbusItemImport
 
 logger = logging.getLogger(__file__)
@@ -56,13 +55,15 @@ class VeDbusItemExportTests(unittest.TestCase):
 		self.sp = subprocess.Popen([sys.executable, "fixture_vedbus.py"], stdout=subprocess.PIPE)
 		self.dbusConn = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus()
 
-		#wait for fixture to be up and running
-		while (self.sp.stdout.readline().rstrip() != 'up and running'):
+		# Wait for fixture to be up and running. 'b' prefix is for python3,
+		# it works in both python versions.
+		while (self.sp.stdout.readline().rstrip() != b'up and running'):
 			pass
 
 	def tearDown(self):
 		self.sp.kill()
 		self.sp.wait()
+		self.sp.stdout.close()
 
 	def test_get_value_invalid(self):
 		v = self.dbusConn.get_object('com.victronenergy.dbusexample', '/Invalid').GetValue()
@@ -139,26 +140,26 @@ class VeDbusItemExportTests(unittest.TestCase):
 
 		time.sleep(0.5)
 
-		t = ""
-		while True:
+		t = bytes()
+		while self.process.returncode is None:
 			try:
 				t += self.process.stdout.readline()
 			except IOError:
 				break
+		self.process.stdout.close()
 
-		a = "=(null destination) serial=4 path=/Gettextcallback; interface=com.victronenergy.BusItem; member=PropertiesChanged\n"
-		a += "   array [\n"
-		a += "      dict entry(\n"
-		a += "         string \"Text\"\n"
-		a += "         variant             string \"gettexted /Gettextcallback 60\"\n"
-		a += "      )\n"
-		a += "      dict entry(\n"
-		a += "         string \"Value\"\n"
-		a += "         variant             int32 60\n"
-		a += "      )\n"
-		a += "   ]"
+		text = b"      dict entry(\n"
+		text += b"         string \"Text\"\n"
+		text += b"         variant             string \"gettexted /Gettextcallback 60\"\n"
+		text += b"      )\n"
 
-		self.assertNotEqual(-1, t.find(a))
+		value = b"      dict entry(\n"
+		value += b"         string \"Value\"\n"
+		value += b"         variant             int32 60\n"
+		value += b"      )\n"
+
+		self.assertNotEqual(-1, t.find(text))
+		self.assertNotEqual(-1, t.find(value))
 
 		thread.join()
 
