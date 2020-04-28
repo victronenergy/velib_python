@@ -57,7 +57,7 @@ class MonitoredValue(object):
 
 class Service(object):
 	whentologoptions = ['configChange', 'onIntervalAlwaysAndOnEvent',
-		'onIntervalOnlyWhenChanged', 'onIntervalAlways']
+		'onIntervalOnlyWhenChanged', 'onIntervalAlways', 'never']
 	def __init__(self, id, serviceName, deviceInstance):
 		super(Service, self).__init__()
 		self.id = id
@@ -70,6 +70,7 @@ class Service(object):
 		self.onIntervalAlwaysAndOnEvent = []
 		self.onIntervalOnlyWhenChanged = []
 		self.onIntervalAlways = []
+		self.never = []
 
 	# For legacy code, attributes can still be accessed as if keys from a
 	# dictionary.
