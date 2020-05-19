@@ -146,6 +146,21 @@ class MosquittoBridgeRegistrator(object):
 	def client_id(self):
 		return self._client_id
 
+	def _write_config_atomically(self, path, contents):
+		with open(path + ".tmp", 'wt') as out_file:
+			# make sure the new config is on the disk
+			out_file.write(contents)
+			out_file.flush()
+			os.fsync(out_file.fileno())
+
+			# make sure there is either the old file or the new one
+			os.rename(path + ".tmp", path)
+
+			# update the directory meta-info
+			fd = os.open(os.path.dirname(path), 0)
+			os.fsync(fd)
+			os.close(fd)
+
 	def _init_broker(self, quiet=True, timeout=5):
 		try:
 			with open(LockFilePath, "a") as lockFile:
@@ -165,6 +180,9 @@ class MosquittoBridgeRegistrator(object):
 				except IOError:
 					if not quiet:
 						logging.info('[InitBroker] Reading config file failed.')
+				# We need a guarantee an empty file, otherwise Mosquitto crashes on load.
+				if not os.path.exists(BridgeConfigPath):
+					self._write_config_atomically(BridgeConfigPath, "");
 				# Fix items missing from config
 				if self._client_id is None:
 					self._client_id = 'ccgx_' + get_random_string(12)
@@ -192,19 +210,7 @@ class MosquittoBridgeRegistrator(object):
 							config_dir = os.path.dirname(BridgeConfigPath)
 							if not os.path.exists(config_dir):
 								os.makedirs(config_dir)
-							with open(BridgeConfigPath + ".tmp", 'wt') as out_file:
-								# make sure the new config is on the disk
-								out_file.write(config)
-								out_file.flush()
-								os.fsync(out_file.fileno())
-
-								# make sure there is either the old file or the new one
-								os.rename(BridgeConfigPath + ".tmp", BridgeConfigPath)
-
-								# update the directory meta-info
-								fd = os.open(config_dir, 0)
-								os.fsync(fd)
-								os.close(fd)
+							self._write_config_atomically(BridgeConfigPath, config)
 							self._restart_broker()
 						self._init_broker_timer = None
 						logging.getLogger("requests").setLevel(self._requests_log_level)
