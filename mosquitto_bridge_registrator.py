@@ -147,6 +147,11 @@ class MosquittoBridgeRegistrator(object):
 		return self._client_id
 
 	def _write_config_atomically(self, path, contents):
+
+		config_dir = os.path.dirname(path)
+		if not os.path.exists(config_dir):
+			os.makedirs(config_dir)
+
 		with open(path + ".tmp", 'wt') as out_file:
 			# make sure the new config is on the disk
 			out_file.write(contents)
@@ -207,9 +212,6 @@ class MosquittoBridgeRegistrator(object):
 						# Do we need to adjust the settings file?
 						if config != orig_config:
 							logging.info('[InitBroker] Writing new config file')
-							config_dir = os.path.dirname(BridgeConfigPath)
-							if not os.path.exists(config_dir):
-								os.makedirs(config_dir)
 							self._write_config_atomically(BridgeConfigPath, config)
 							self._restart_broker()
 						self._init_broker_timer = None
