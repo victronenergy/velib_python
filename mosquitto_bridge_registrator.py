@@ -70,14 +70,13 @@ class MosquittoBridgeRegistrator(object):
 	instead connect directly to the VRM broker url.
 	"""
 
-	def __init__(self, system_id, restart_mosquitto=True):
+	def __init__(self, system_id):
 		self._init_broker_timer = None
 		self._aborted = threading.Event()
 		self._client_id = None
 		self._system_id = system_id
 		self._global_broker_username = "ccgxapikey_" + self._system_id
 		self._global_broker_password = None
-		self._restart_mosquitto = restart_mosquitto
 		self._requests_log_level = logging.getLogger("requests").getEffectiveLevel()
 
 	def _get_vrm_broker_url(self):
@@ -214,6 +213,8 @@ class MosquittoBridgeRegistrator(object):
 							logging.info('[InitBroker] Writing new config file')
 							self._write_config_atomically(BridgeConfigPath, config)
 							self._restart_broker()
+						else:
+							logging.info('[InitBroker] Not updating config file and not restarting Mosquitto, because config is correct.')
 						self._init_broker_timer = None
 						logging.getLogger("requests").setLevel(self._requests_log_level)
 						logging.info('[InitBroker] Registration successful')
@@ -228,9 +229,8 @@ class MosquittoBridgeRegistrator(object):
 		return True
 
 	def _restart_broker(self):
-		if self._restart_mosquitto:
-			logging.info('Restarting broker')
-			subprocess.call(['svc', '-t', '/service/mosquitto'])
+		logging.info('Restarting broker')
+		subprocess.call(['svc', '-t', '/service/mosquitto'])
 
 	def get_password(self):
 		assert self._global_broker_password is not None
