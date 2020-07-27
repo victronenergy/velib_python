@@ -287,6 +287,8 @@ class DbusMonitor(object):
 		if 'Value' not in changes:
 			return
 
+		service.set_seen(path)
+
 		# First update our store to the new value
 		changes['Value'] = unwrap_dbus_value(changes['Value'])
 		if a.value == changes['Value']:
@@ -298,8 +300,6 @@ class DbusMonitor(object):
 		except KeyError:
 			# Some services don't send Text with their PropertiesChanged events.
 			a.text = str(a.value)
-
-		service.set_seen(path)
 
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
