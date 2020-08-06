@@ -10,7 +10,7 @@ to the dummy data via the dbus. See example.
 
 https://github.com/victronenergy/dbus_vebus_to_pvinverter/tree/master/test
 """
-import gobject
+from gi.repository import GObject as gobject
 import platform
 import argparse
 import logging

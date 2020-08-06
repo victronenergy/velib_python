@@ -69,7 +69,7 @@ def get_vrm_portal_id():
 	# First try the method that works if we don't have a data partition. This
 	# will fail when the current user is not root.
 	try:
-		portal_id = check_output("/sbin/get-unique-id").strip()
+		portal_id = check_output("/sbin/get-unique-id").decode("utf-8", "ignore").strip()
 		if not portal_id:
 			raise NoVrmPortalIdError("get-unique-id returned blank")
 		__vrm_portal_id = portal_id
