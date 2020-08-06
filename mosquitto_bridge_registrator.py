@@ -242,6 +242,6 @@ class MosquittoBridgeRegistrator(object):
 
 def get_random_string(size=32):
 	"""Creates a random (hex) string which contains 'size' characters."""
-	return ''.join("{0:02x}".format(ord(b)) for b in open('/dev/urandom', 'rb').read(size/2))
+	return ''.join("{0:02x}".format(b) for b in open('/dev/urandom', 'rb').read(int(size/2)))
 
 # vim: noexpandtab:shiftwidth=4:tabstop=4:softtabstop=0
