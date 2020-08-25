@@ -54,14 +54,17 @@ class SettingsDevice(object):
 			time.sleep(1)
 
 		# Add the items.
-		for setting, options in supportedSettings.items():
+		self.addSettings(supportedSettings)
+
+		logging.debug("===== Settings device init finished =====")
+
+	def addSettings(self, settings):
+		for setting, options in settings.items():
 			silent = len(options) > SILENT and options[SILENT]
 			busitem = self.addSetting(options[PATH], options[VALUE],
 				options[MINIMUM], options[MAXIMUM], silent, callback=partial(self.handleChangedSetting, setting))
 			self._settings[setting] = busitem
 			self._values[setting] = busitem.get_value()
-
-		logging.debug("===== Settings device init finished =====")
 
 	def addSetting(self, path, value, _min, _max, silent=False, callback=None):
 		busitem = VeDbusItemImport(self._bus, self._dbus_name, path, callback)
