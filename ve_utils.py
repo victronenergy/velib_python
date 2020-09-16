@@ -50,15 +50,6 @@ def get_vrm_portal_id():
 	except (CalledProcessError, OSError):
 		pass
 
-	# Attempt to get the id from /data/venus/unique-id where venus puts it
-	# on startup.
-	try:
-		__vrm_portal_id = open('/data/venus/unique-id').read().strip()
-	except IOError:
-		pass
-	else:
-		return __vrm_portal_id
-
 	# Fall back to getting our id using a syscall. Assume we are on linux.
 	# Allow the user to override what interface is used using an environment
 	# variable.
