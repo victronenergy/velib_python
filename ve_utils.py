@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 VEDBUS_INVALID = dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
 
+class NoVrmPortalIdError(Exception):
+	pass
+
 # Use this function to make sure the code quits on an unexpected exception. Make sure to use it
 # when using gobject.idle_add and also gobject.timeout_add.
 # Without this, the code will just keep running, since gobject does not stop the mainloop on an
@@ -42,12 +45,21 @@ def get_vrm_portal_id():
 	if __vrm_portal_id:
 		return __vrm_portal_id
 
-	# First try the method that works if we don't have a data partition. This will fail
-	# when the current user is not root.
+	portal_id = None
+
+	# First try the method that works if we don't have a data partition. This
+	# will fail when the current user is not root.
 	try:
-		__vrm_portal_id = check_output("/sbin/get-unique-id").strip()
-		return __vrm_portal_id
-	except (CalledProcessError, OSError):
+		portal_id = check_output("/sbin/get-unique-id").strip()
+		if not portal_id:
+			raise NoVrmPortalIdError("get-unique-id returned blank")
+		__vrm_portal_id = portal_id
+		return portal_id
+	except CalledProcessError:
+		# get-unique-id returned non-zero
+		raise NoVrmPortalIdError("get-unique-id returned non-zero")
+	except OSError:
+		# File doesn't exist, use fallback
 		pass
 
 	# Fall back to getting our id using a syscall. Assume we are on linux.
@@ -57,7 +69,11 @@ def get_vrm_portal_id():
 
 	iface = os.environ.get('VRM_IFACE', 'eth0')
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-	info = fcntl.ioctl(s.fileno(), 0x8927,  struct.pack('256s', iface[:15]))
+	try:
+		info = fcntl.ioctl(s.fileno(), 0x8927,  struct.pack('256s', iface[:15]))
+	except IOError:
+		raise NoVrmPortalIdError("ioctl failed for eth0")
+
 	__vrm_portal_id = ''.join(['%02x' % ord(char) for char in info[18:24]])
 	return __vrm_portal_id
 
