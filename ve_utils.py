@@ -35,10 +35,18 @@ def exit_on_error(func, *args, **kwargs):
 
 __vrm_portal_id = None
 def get_vrm_portal_id():
-	# For the CCGX, the definition of the VRM Portal ID is that it is the mac address of the onboard-
-	# ethernet port (eth0), stripped from its colons (:) and lower case.
-
-	# nice coincidence is that this also works fine when running on your (linux) development computer.
+	# The original definition of the VRM Portal ID is that it is the mac
+	# address of the onboard- ethernet port (eth0), stripped from its colons
+	# (:) and lower case. This may however differ between platforms. On Venus
+	# the task is therefore deferred to /sbin/get-unique-id so that a
+	# platform specific method can be easily defined.
+	#
+	# If /sbin/get-unique-id does not exist, then use the ethernet address
+	# of eth0. This also handles the case where velib_python is used as a
+	# package install on a Raspberry Pi.
+	#
+	# On a Linux host where the network interface may not be eth0, you can set
+	# the VRM_IFACE environment variable to the correct name.
 
 	global __vrm_portal_id
 
