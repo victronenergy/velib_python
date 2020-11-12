@@ -4,7 +4,7 @@ import time
 from functools import partial
 
 # Local imports
-from vedbus import VeDbusItemImport
+from .vedbus import VeDbusItemImport
 
 ## Indexes for the setting dictonary.
 PATH = 0

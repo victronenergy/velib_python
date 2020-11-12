@@ -5,7 +5,7 @@ import os
 import requests
 import subprocess
 import traceback
-from ve_utils import exit_on_error
+
 VrmNumberOfBrokers = 128
 VrmApiServer = 'https://ccgxlogging.victronenergy.com'
 CaBundlePath = "/etc/ssl/certs/ccgx-ca.pem"

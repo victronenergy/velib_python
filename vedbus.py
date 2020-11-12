@@ -6,7 +6,7 @@ import logging
 import traceback
 import os
 import weakref
-from ve_utils import wrap_dbus_value, unwrap_dbus_value
+from .ve_utils import wrap_dbus_value, unwrap_dbus_value
 
 # vedbus contains three classes:
 # VeDbusItemImport -> use this to read data from the dbus, ie import

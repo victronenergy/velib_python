@@ -30,7 +30,7 @@ from functools import partial
 
 # our own packages
 from vedbus import VeDbusItemExport, VeDbusItemImport
-from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value
+from .ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value
 notfound = object() # For lookups where None is a valid result
 
 if hasattr(dict, 'iteritems'):

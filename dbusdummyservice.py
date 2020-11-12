@@ -19,7 +19,7 @@ import os
 
 # our own packages
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../ext/velib_python'))
-from vedbus import VeDbusService
+from .vedbus import VeDbusService
 
 class DbusDummyService:
     def __init__(self, servicename, deviceinstance, paths, productname='Dummy product', connection='Dummy service'):

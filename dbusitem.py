@@ -10,7 +10,7 @@ from dbus import String
 from lxml.etree import XML
 
 # Local imports
-import tracing
+from . import tracing
 
 ## Implements a velib dbus item as a local object.
 class Dbusitem(object):
