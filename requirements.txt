@@ -1,0 +1,4 @@
+lxml==4.6.1
+requests==2.25.0
+PyGObject==3.38.0
+dbus-python==1.2.16
