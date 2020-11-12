@@ -106,7 +106,7 @@ class Dbusitem(object):
 		if self._value is None or self._match is None:
 			try:
 				self._value = self.object.GetValue()
-			except Exception, ex:
+			except Exception as ex:
 				tracing.log.error("GetValue %s %s exception %s" % (self._dbus_name, self.object.object_path, ex))
 		#tracing.log.debug('value %s %s type %s' % (self.object.object_path, str(self._value), type(self._value)))
 		
@@ -136,7 +136,7 @@ class Dbusitem(object):
 		if self._text is None or self._match is None:
 			try:
 				self._text = self.object.GetText()
-			except Exception, ex:
+			except Exception as ex:
 				tracing.log.error("GetText %s %s exception %s" % (self._dbus_name, self.object.object_path, ex))
 		return self._text
 
