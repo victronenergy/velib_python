@@ -16,7 +16,6 @@
 # Code is used by the vrmLogger, and also the pubsub code. Both are other modules in the dbus_vrm repo.
 
 from dbus.mainloop.glib import DBusGMainLoop
-from gobjectwrapper import gobject
 import dbus
 import dbus.service
 import inspect
@@ -29,6 +28,7 @@ from collections import defaultdict
 from functools import partial
 
 # our own packages
+from .gobjectwrapper import gobject
 from vedbus import VeDbusItemExport, VeDbusItemImport
 from .ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value
 notfound = object() # For lookups where None is a valid result
