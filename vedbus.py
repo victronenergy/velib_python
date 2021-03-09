@@ -6,6 +6,7 @@ import logging
 import traceback
 import os
 import weakref
+from collections import defaultdict
 from ve_utils import wrap_dbus_value, unwrap_dbus_value
 
 # vedbus contains three classes:
@@ -176,6 +177,44 @@ class VeDbusService(object):
 	def __contains__(self, path):
 		return path in self._dbusobjects
 
+class TrackerDict(defaultdict):
+	""" Same as defaultdict, but passes the key to default_factory. """
+	def __missing__(self, key):
+		self[key] = x = self.default_factory(key)
+		return x
+
+class VeDbusRootTracker(object):
+	""" This tracks the root of a dbus path and listens for PropertiesChanged
+	    signals. When a signal arrives, parse it and unpack the key/value changes
+	    into traditional events, then pass it to the original eventCallback
+	    method. """
+	def __init__(self, bus, serviceName):
+		self.importers = defaultdict(weakref.WeakSet)
+		self.serviceName = serviceName
+		self._match = bus.get_object(serviceName, '/', introspect=False).connect_to_signal(
+			"PropertiesChanged", weak_functor(self._root_properties_changed_handler))
+
+	def __del__(self):
+		self._match.remove()
+		self._match = None
+
+	def add(self, i):
+		self.importers[i.path].add(i)
+
+	def _root_properties_changed_handler(self, changes):
+		if 'Value' not in changes or not isinstance(changes['Value'], dict):
+			return
+
+		texts = changes['Text']
+		for p, v in changes['Value'].items():
+			try:
+				t = texts[p]
+			except KeyError:
+				t = str(unwrap_dbus_value(v))
+
+			for i in self.importers.get('/' + p, ()):
+				i._properties_changed_handler({'Value': v, 'Text': t})
+
 """
 Importing basics:
 	- If when we power up, the D-Bus service does not exist, or it does exist and the path does not
@@ -199,6 +238,16 @@ make sure to also subscribe to the NamerOwnerChanged signal on bus-level. Or jus
 because that takes care of all of that for you.
 """
 class VeDbusItemImport(object):
+	def __new__(cls, bus, serviceName, path, eventCallback=None, createsignal=True):
+		instance = object.__new__(cls)
+
+		# If signal tracking should be done, also add to root tracker
+		if createsignal:
+			if "_roots" not in cls.__dict__:
+				cls._roots = TrackerDict(lambda k: VeDbusRootTracker(bus, k))
+
+		return instance
+
 	## Constructor
 	# @param bus			the bus-object (SESSION or SYSTEM).
 	# @param serviceName	the dbus-service-name (string), for example 'com.victronenergy.battery.ttyO1'
@@ -221,6 +270,7 @@ class VeDbusItemImport(object):
 		if createsignal:
 			self._match = self._proxy.connect_to_signal(
 				"PropertiesChanged", weak_functor(self._properties_changed_handler))
+			self._roots[serviceName].add(self)
 
 		# store the current value in _cachedvalue. When it doesn't exists set _cachedvalue to
 		# None, same as when a value is invalid
@@ -233,7 +283,7 @@ class VeDbusItemImport(object):
 			self._cachedvalue = unwrap_dbus_value(v)
 
 	def __del__(self):
-		if self._match != None:
+		if self._match is not None:
 			self._match.remove()
 			self._match = None
 		self._proxy = None
