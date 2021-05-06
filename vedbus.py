@@ -62,6 +62,7 @@ class VeDbusService(object):
 		# dict containing the VeDbusItemExport objects, with their path as the key.
 		self._dbusobjects = {}
 		self._dbusnodes = {}
+		self._ratelimiters = []
 
 		# dict containing the onchange callbacks, for each object. Object path is the key
 		self._onchangecallbacks = {}
@@ -176,6 +177,41 @@ class VeDbusService(object):
 
 	def __contains__(self, path):
 		return path in self._dbusobjects
+
+	def __enter__(self):
+		l = ServiceContext(self)
+		self._ratelimiters.append(l)
+		return l
+
+	def __exit__(self, *exc):
+		# pop off the top one and flush it. If with statements are nested
+		# then each exit flushes its own part.
+		if self._ratelimiters:
+			self._ratelimiters.pop().flush()
+
+class ServiceContext(object):
+	def __init__(self, parent):
+		self.parent = parent
+		self.changes = {}
+
+	def __getitem__(self, path):
+		return self.parent[path]
+
+	def __setitem__(self, path, newvalue):
+		c = self.parent._dbusobjects[path]._local_set_value(newvalue)
+		if c is not None:
+			self.changes[path[1:]] = c
+
+	def flush(self):
+		if self.changes:
+			self.parent._dbusnodes['/'].PropertiesChanged({
+				'Value': {
+					path: change['Value'] for path, change in self.changes.items()
+				},
+				'Text': {
+					path: change['Text'] for path, change in self.changes.items()
+				}
+			})
 
 class TrackerDict(defaultdict):
 	""" Same as defaultdict, but passes the key to default_factory. """
@@ -403,6 +439,10 @@ class VeDbusTreeExport(dbus.service.Object):
 	def local_get_value(self):
 		return self._get_value_handler(self.path)
 
+	@dbus.service.signal('com.victronenergy.BusItem', signature='a{sv}')
+	def PropertiesChanged(self, changes):
+		pass
+
 
 class VeDbusItemExport(dbus.service.Object):
 	## Constructor of VeDbusItemExport
@@ -450,15 +490,19 @@ class VeDbusItemExport(dbus.service.Object):
 	# is using this class to export values to the dbus.
 	# set value to None to indicate that it is Invalid
 	def local_set_value(self, newvalue):
+		changes = self._local_set_value(newvalue)
+		if changes is not None:
+			self.PropertiesChanged(changes)
+
+	def _local_set_value(self, newvalue):
 		if self._value == newvalue:
-			return
+			return None
 
 		self._value = newvalue
-
-		changes = {}
-		changes['Value'] = wrap_dbus_value(newvalue)
-		changes['Text'] = self.GetText()
-		self.PropertiesChanged(changes)
+		return {
+			'Value': wrap_dbus_value(newvalue),
+			'Text': self.GetText()
+		}
 
 	def local_get_value(self):
 		return self._value
