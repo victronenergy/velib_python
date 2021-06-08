@@ -474,7 +474,7 @@ class VeDbusItemExport(dbus.service.Object):
 			return "0x%X" % self._value
 
 		if self._gettextcallback is None:
-			return unicode(self._value).encode('utf-8')
+			return unicode(self._value)
 
 		return self._gettextcallback(self.__dbus_object_path__, self._value)
 
