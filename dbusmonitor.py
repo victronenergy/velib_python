@@ -299,7 +299,7 @@ class DbusMonitor(object):
 			a.text = changes['Text']
 		except KeyError:
 			# Some services don't send Text with their PropertiesChanged events.
-			a.text = str(a.value)
+			a.text = unicode(a.value).encode('utf-8')
 
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
