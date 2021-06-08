@@ -15,7 +15,6 @@ from dbus.mainloop.glib import DBusGMainLoop
 
 # Local
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../'))
-from gobjectwrapper import gobject
 from vedbus import VeDbusService, VeDbusItemImport
 
 logger = logging.getLogger(__file__)

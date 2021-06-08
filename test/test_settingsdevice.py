@@ -4,7 +4,6 @@
 # Python
 import logging
 import os
-import gobject
 import sqlite3
 import sys
 import unittest

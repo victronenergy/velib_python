@@ -16,7 +16,7 @@
 # Code is used by the vrmLogger, and also the pubsub code. Both are other modules in the dbus_vrm repo.
 
 from dbus.mainloop.glib import DBusGMainLoop
-from gobjectwrapper import gobject
+from gi.repository import GLib
 import dbus
 import dbus.service
 import inspect
@@ -147,7 +147,7 @@ class DbusMonitor(object):
 			return
 
 		#decouple, and process in main loop
-		gobject.idle_add(exit_on_error, self._process_name_owner_changed, name, oldowner, newowner)
+		GLib.idle_add(exit_on_error, self._process_name_owner_changed, name, oldowner, newowner)
 
 	def _process_name_owner_changed(self, name, oldowner, newowner):
 		if newowner != '':
@@ -303,11 +303,11 @@ class DbusMonitor(object):
 			a.text = changes['Text']
 		except KeyError:
 			# Some services don't send Text with their PropertiesChanged events.
-			a.text = unicode(a.value)
+			a.text = str(a.value)
 
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
-			gobject.idle_add(exit_on_error, self._execute_value_changes, service.name, path, changes, a.options)
+			GLib.idle_add(exit_on_error, self._execute_value_changes, service.name, path, changes, a.options)
 
 	def _execute_value_changes(self, serviceName, objectPath, changes, options):
 		# double check that the service still exists, as it might have
@@ -528,11 +528,11 @@ def main():
 	# logger.info("==onIntervalAlways and onIntervalOnlyWhenChanged==")
 	# logger.info(pprint.pformat(d.get_values(['onIntervalAlways', 'onIntervalAlwaysAndOnEvent'])))
 
-	gobject.timeout_add(1000, print_values, d)
+	GLib.timeout_add(1000, print_values, d)
 
 	# Start and run the mainloop
 	logger.info("Starting mainloop, responding on only events")
-	mainloop = gobject.MainLoop()
+	mainloop = GLib.MainLoop()
 	mainloop.run()
 
 if __name__ == "__main__":

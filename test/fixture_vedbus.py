@@ -12,7 +12,7 @@ import os
 
 # our own packages
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../'))
-from gobjectwrapper import gobject
+from gi.repository import GLib
 from vedbus import VeDbusItemExport
 
 # Dictionary containing all objects exported to dbus
@@ -58,7 +58,7 @@ def main(argv):
 		dbusObjects['gettextcallback'] = VeDbusItemExport(dbusConn, '/Gettextcallback',
 			'10', gettextcallback=gettext, writeable=True)
 
-		mainloop = gobject.MainLoop()
+		mainloop = GLib.MainLoop()
 		print("up and running")
 		sys.stdout.flush()
 

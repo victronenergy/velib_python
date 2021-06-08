@@ -9,26 +9,16 @@ import logging
 import dbus
 logger = logging.getLogger(__name__)
 
-PY3 = sys.version_info.major >= 3
-
 VEDBUS_INVALID = dbus.Array([], signature=dbus.Signature('i'), variant_level=1)
 
 class NoVrmPortalIdError(Exception):
 	pass
 
-if PY3:
-	hex = lambda s: s.hex()
-	integer_types = (int,)
-	unicode = str
-else:
-	hex = lambda s: s.encode('hex')
-	integer_types = (int, long)
-
 # Use this function to make sure the code quits on an unexpected exception. Make sure to use it
-# when using gobject.idle_add and also gobject.timeout_add.
-# Without this, the code will just keep running, since gobject does not stop the mainloop on an
+# when using GLib.idle_add and also GLib.timeout_add.
+# Without this, the code will just keep running, since GLib does not stop the mainloop on an
 # exception.
-# Example: gobject.idle_add(exit_on_error, myfunc, arg1, arg2)
+# Example: GLib.idle_add(exit_on_error, myfunc, arg1, arg2)
 def exit_on_error(func, *args, **kwargs):
 	try:
 		return func(*args, **kwargs)
@@ -93,7 +83,7 @@ def get_vrm_portal_id():
 	except IOError:
 		raise NoVrmPortalIdError("ioctl failed for eth0")
 
-	__vrm_portal_id = hex(info[18:24])
+	__vrm_portal_id = info[18:24].hex()
 	return __vrm_portal_id
 
 
@@ -221,12 +211,12 @@ def wrap_dbus_value(value):
 		return dbus.Double(value, variant_level=1)
 	if isinstance(value, bool):
 		return dbus.Boolean(value, variant_level=1)
-	if isinstance(value, integer_types):
+	if isinstance(value, int):
 		try:
 			return dbus.Int32(value, variant_level=1)
 		except OverflowError:
 			return dbus.Int64(value, variant_level=1)
-	if isinstance(value, (str, unicode)):
+	if isinstance(value, str):
 		return dbus.String(value, variant_level=1)
 	if isinstance(value, list):
 		if len(value) == 0:
@@ -259,7 +249,7 @@ def unwrap_dbus_value(val):
 		v = [unwrap_dbus_value(x) for x in val]
 		return None if len(v) == 0 else v
 	if isinstance(val, (dbus.Signature, dbus.String)):
-		return unicode(val)
+		return str(val)
 	# Python has no byte type, so we convert to an integer.
 	if isinstance(val, dbus.Byte):
 		return int(val)

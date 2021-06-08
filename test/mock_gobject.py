@@ -127,9 +127,10 @@ def test_function(m, name):
 
 def patch_gobject(dest):
 	'''
-	Use this function to replace the original gobject function with the mocked versions in this file.
-	Suppose your source files being tested uses 'import gobject' and the unit test uses 'import tested'
-	you should call path(tested.gobject).
+	Use this function to replace the original gobject/GLib functions with the
+	mocked versions in this file.  Suppose your source files being tested uses
+	'from gi.repository import GLib' and the unit test uses 'import tested' you
+	should call path(tested.GLib).
 	'''
 	dest.timeout_add = timeout_add
 	dest.timeout_add_seconds = timeout_add_seconds

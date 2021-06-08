@@ -10,7 +10,7 @@ to the dummy data via the dbus. See example.
 
 https://github.com/victronenergy/dbus_vebus_to_pvinverter/tree/master/test
 """
-from gi.repository import GObject as gobject
+from gi.repository import GLib
 import platform
 import argparse
 import logging
@@ -45,7 +45,7 @@ class DbusDummyService:
             self._dbusservice.add_path(
                 path, settings['initial'], writeable=True, onchangecallback=self._handlechangedvalue)
 
-        gobject.timeout_add(1000, self._update)
+        GLib.timeout_add(1000, self._update)
 
     def _update(self):
         for path, settings in self._paths.items():
@@ -88,8 +88,8 @@ def main():
             '/DbusInvalid': {'initial': None}
         })
 
-    logging.info('Connected to dbus, and switching over to gobject.MainLoop() (= event based)')
-    mainloop = gobject.MainLoop()
+    logging.info('Connected to dbus, and switching over to GLib.MainLoop() (= event based)')
+    mainloop = GLib.MainLoop()
     mainloop.run()
 
 
