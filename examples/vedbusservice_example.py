@@ -26,7 +26,7 @@ def get_text_for_rpm(path, value):
 def main(argv):
 		global dbusObjects
 
-		print __file__ + " starting up"
+		print(__file__ + " starting up")
 
 		# Have a mainloop, so we can send/receive asynchronous calls to and from dbus
 		DBusGMainLoop(set_as_default=True)

@@ -64,14 +64,14 @@ def printall():
 
 	row_format = "{:<60} {:>4}  {:>4}%  {:>4.2f} / s"
 
-	print row_format.format("Total", total, 100, total / t_elapsed)
+	print(row_format.format("Total", total, 100, total / t_elapsed))
 
 	for service, values in items.iteritems():
 		# skip the services that didn't emit any signals
 		if len(values) == 2 and "_name" in values:
 			continue
 
-		print row_format.format(values.get("_name", service), values["_total"], values["_total"] * 100 / total, values["_total"] / t_elapsed)
+		print(row_format.format(values.get("_name", service), values["_total"], values["_total"] * 100 / total, values["_total"] / t_elapsed))
 
 	# uncomment this to see all the paths as well.
 	# print("--------------")
