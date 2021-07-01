@@ -1,13 +1,16 @@
 language: python
+dist: focal
 
 python:
-  - "2.7_with_system_site_packages"
+  - "3.7"
 
 before_install:
   - sudo apt-get update
-  - sudo apt-get install python-gobject-2
-  - sudo apt-get install dbus-x11
-  - sudo apt-get install python-dbus
+  - sudo apt-get install dbus-x11 libcairo2-dev libdbus-1-dev libgirepository1.0-dev pkg-config
+  - python -m pip install --upgrade pip
+
+install:
+  - pip3 install dbus-python PyGObject
 
 script:
   - eval `dbus-launch --sh-syntax` && cd test && python test_vedbus.py -v
