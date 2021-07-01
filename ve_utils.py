@@ -152,7 +152,7 @@ def _get_sysfs_machine_name():
 def get_machine_name():
 	# First try calling the venus utility script
 	try:
-		return check_output("/usr/bin/product-name").strip()
+		return check_output("/usr/bin/product-name").strip().decode('UTF-8')
 	except (CalledProcessError, OSError):
 		pass
 
@@ -163,7 +163,7 @@ def get_machine_name():
 
 	# Fall back to venus build machine name
 	try:
-		with open('/etc/venus/machine', 'r') as f:
+		with open('/etc/venus/machine', 'r', encoding='UTF-8') as f:
 			return f.read().strip()
 	except IOError:
 		pass
