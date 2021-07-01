@@ -1,7 +1,7 @@
 velib_python
 ============
 
-[![Build Status](https://travis-ci.org/victronenergy/velib_python.svg?branch=master)](https://travis-ci.org/victronenergy/velib_python)
+[![Build Status](https://travis-ci.com/victronenergy/velib_python.svg?branch=master)](https://travis-ci.org/victronenergy/velib_python)
 
 This is the general python library within Victron. It contains code that is related to D-Bus and the Color
 Control GX. See http://www.victronenergy.com/panel-systems-remote-monitoring/colorcontrol/ for more
