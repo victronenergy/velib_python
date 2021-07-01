@@ -8,11 +8,12 @@ from functools import partial
 # the monitor.
 class MockDbusMonitor(object):
     def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
-            deviceRemovedCallback=None, mountEventCallback=None, vebusDeviceInstance0=False):
+            deviceRemovedCallback=None, mountEventCallback=None, vebusDeviceInstance0=False, checkPaths=True):
         self._services = {}
         self._tree = {}
         self._seen = defaultdict(set)
         self._watches = defaultdict(dict)
+        self._checkPaths = checkPaths
         self._value_changed_callback = valueChangedCallback
         self._device_removed_callback = deviceRemovedCallback
         self._device_added_callback = deviceAddedCallback
@@ -72,7 +73,7 @@ class MockDbusMonitor(object):
         s = self._tree.get(class_name, None)
         if s is None:
             raise Exception('service not found')
-        if path not in s:
+        if self._checkPaths and path not in s:
             raise Exception('Path not found: {}{} (check dbusTree passed to __init__)'.format(service, path))
         s = self._services.setdefault(service, {})
         s[path] = MockImportItem(value)
