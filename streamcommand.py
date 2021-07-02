@@ -29,7 +29,7 @@ class StreamCommand(object):
 			self.feedbacksender.send({"status": "starting"})
 
 			try:
-				self.process = subprocess.Popen(command, stdout=subprocess.PIPE)
+				self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 			except OSError as e:
 				logger.info("Command %s could not be started, errno: %s, msg: %s"
 					% (command, e.errno, e.strerror))
@@ -88,6 +88,6 @@ class StreamCommand(object):
 			# Max length on pubnub is 1800 chars, and output is much better readable with the bare eye
 			# when sent per line. So no need to send it alltogether.
 			self.feedbacksender.send({"status": "running", "xmloutput": unicode_line})
-			if line == '' and self.process.poll() != None:
+			if line == b'' and self.process.poll() != None:
 				break
 			sleep(0.04)
