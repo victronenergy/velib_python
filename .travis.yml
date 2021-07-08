@@ -13,4 +13,4 @@ install:
   - pip3 install dbus-python PyGObject
 
 script:
-  - eval `dbus-launch --sh-syntax` && cd test && python test_vedbus.py -v
+  - eval `dbus-launch --sh-syntax` && cd test && python3 test_vedbus.py -v

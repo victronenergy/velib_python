@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 A class to put a simple service on the dbus, according to victron standards, with constantly updating
