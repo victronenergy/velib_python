@@ -129,6 +129,12 @@ class DbusMonitor(object):
 			signal_name='PropertiesChanged', path_keyword='path',
 			sender_keyword='senderId')
 
+		# Subscribe to ItemsChanged for all services
+		self.dbusConn.add_signal_receiver(self.handler_item_changes,
+			dbus_interface='com.victronenergy.BusItem',
+			signal_name='ItemsChanged', path='/',
+			sender_keyword='senderId')
+
 		logger.info('===== Search on dbus for services that we will monitor starting... =====')
 		serviceNames = self.dbusConn.list_names()
 		for serviceName in serviceNames:
@@ -272,6 +278,24 @@ class DbusMonitor(object):
 
 		return True
 
+	def handler_item_changes(self, items, senderId):
+		if not isinstance(items, dict):
+			return
+
+		try:
+			service = self.servicesById[senderId]
+		except KeyError:
+			# senderId isn't there, which means it hasn't been scanned yet.
+			return
+
+		for path, changes in items.items():
+			v = unwrap_dbus_value(changes['Value'])
+			try:
+				t = changes['Text']
+			except KeyError:
+				t = str(v)
+			self._handler_value_changes(service, path, v, t)
+
 	def handler_value_changes(self, changes, path, senderId):
 		# If this properyChange does not involve a value, our work is done.
 		if 'Value' not in changes:
@@ -283,25 +307,13 @@ class DbusMonitor(object):
 			# senderId isn't there, which means it hasn't been scanned yet.
 			return
 
-		# If path is the root, we're expecting a dict of changes, with the key
-		# being a string for the path.
-		if path == '/' and isinstance(changes['Value'], dict):
-			texts = changes['Text']
-			for p, v in changes['Value'].items():
-				v = unwrap_dbus_value(v)
-				try:
-					t = texts[p]
-				except KeyError:
-					t = str(v)
-				self._handler_value_changes(service, '/' + p, v, t)
-		else:
-			v = unwrap_dbus_value(changes['Value'])
-			# Some services don't send Text with their PropertiesChanged events.
-			try:
-				t = changes['Text']
-			except KeyError:
-				t = str(v)
-			self._handler_value_changes(service, path, v, t)
+		v = unwrap_dbus_value(changes['Value'])
+		# Some services don't send Text with their PropertiesChanged events.
+		try:
+			t = changes['Text']
+		except KeyError:
+			t = str(v)
+		self._handler_value_changes(service, path, v, t)
 
 	def _handler_value_changes(self, service, path, value, text):
 		try:
@@ -469,26 +481,20 @@ class DbusMonitor(object):
 		    the service disappears from dbus. """
 		cb = partial(callback, *args, **kwargs)
 
-		def root_tracker(changes):
-			# Change without Value, bail
-			try:
-				values = changes['Value']
-			except KeyError:
-				return
-
+		def root_tracker(items):
 			# Check if objectPath in dict
 			try:
-				v = values[objectPath[1:]]
+				v = items[objectPath]
 			except (KeyError, TypeError):
 				return # not in this dict
 
-			v = unwrap_dbus_value(v)
+			_v = unwrap_dbus_value(v['Value'])
 			try:
-				t = changes['Text'][objectPath[1:]]
+				t = v['Text']
 			except KeyError:
-				cb({'Value': v })
+				cb({'Value': _v })
 			else:
-				cb({'Value': v, 'Text': t})
+				cb({'Value': _v, 'Text': t})
 
 		# Track changes on the path, and also on root
 		self.serviceWatches[serviceName].extend((
@@ -498,7 +504,7 @@ class DbusMonitor(object):
 				path=objectPath, bus_name=serviceName),
 			self.dbusConn.add_signal_receiver(root_tracker,
 				dbus_interface='com.victronenergy.BusItem',
-				signal_name='PropertiesChanged',
+				signal_name='ItemsChanged',
 				path="/", bus_name=serviceName),
 		))
 
