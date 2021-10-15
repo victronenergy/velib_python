@@ -32,11 +32,6 @@ from functools import partial
 from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value
 notfound = object() # For lookups where None is a valid result
 
-if hasattr(dict, 'iteritems'):
-		iteritems = lambda d: d.iteritems()
-else:
-	iteritems = lambda d: d.items()
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 class SystemBus(dbus.bus.BusConnection):
@@ -232,7 +227,7 @@ class DbusMonitor(object):
 		except:
 			pass
 
-		for path, options in iteritems(paths):
+		for path, options in paths.items():
 			# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
 			# options will be a dictionary: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
 			# check that the whenToLog setting is set to something we expect
@@ -418,7 +413,7 @@ class DbusMonitor(object):
 	def get_service_list(self, classfilter=None):
 		if classfilter is None:
 			return { servicename: service.deviceInstance \
-				for servicename, service in iteritems(self.servicesByName) }
+				for servicename, service in self.servicesByName.items() }
 
 		if classfilter not in self.servicesByClass:
 			return {}
