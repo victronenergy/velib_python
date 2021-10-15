@@ -200,18 +200,11 @@ class ServiceContext(object):
 	def __setitem__(self, path, newvalue):
 		c = self.parent._dbusobjects[path]._local_set_value(newvalue)
 		if c is not None:
-			self.changes[path[1:]] = c
+			self.changes[path] = c
 
 	def flush(self):
 		if self.changes:
-			self.parent._dbusnodes['/'].PropertiesChanged({
-				'Value': {
-					path: change['Value'] for path, change in self.changes.items()
-				},
-				'Text': {
-					path: change['Text'] for path, change in self.changes.items()
-				}
-			})
+			self.parent._dbusnodes['/'].ItemsChanged(self.changes)
 
 class TrackerDict(defaultdict):
 	""" Same as defaultdict, but passes the key to default_factory. """
@@ -443,8 +436,8 @@ class VeDbusTreeExport(dbus.service.Object):
 	def local_get_value(self):
 		return self._get_value_handler(self.path)
 
-	@dbus.service.signal('com.victronenergy.BusItem', signature='a{sv}')
-	def PropertiesChanged(self, changes):
+	@dbus.service.signal('com.victronenergy.BusItem', signature='a{sa{sv}}')
+	def ItemsChanged(self, changes):
 		pass
 
 
