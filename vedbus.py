@@ -228,7 +228,7 @@ class VeDbusRootTracker(object):
 		self.importers = defaultdict(weakref.WeakSet)
 		self.serviceName = serviceName
 		self._match = bus.get_object(serviceName, '/', introspect=False).connect_to_signal(
-			"PropertiesChanged", weak_functor(self._root_properties_changed_handler))
+			"ItemsChanged", weak_functor(self._items_changed_handler))
 
 	def __del__(self):
 		self._match.remove()
@@ -237,18 +237,22 @@ class VeDbusRootTracker(object):
 	def add(self, i):
 		self.importers[i.path].add(i)
 
-	def _root_properties_changed_handler(self, changes):
-		if 'Value' not in changes or not isinstance(changes['Value'], dict):
+	def _items_changed_handler(self, items):
+		if not isinstance(items, dict):
 			return
 
-		texts = changes['Text']
-		for p, v in changes['Value'].items():
+		for path, changes in items.items():
 			try:
-				t = texts[p]
+				v = changes['Value']
+			except KeyError:
+				continue
+
+			try:
+				t = changes['Text']
 			except KeyError:
 				t = str(unwrap_dbus_value(v))
 
-			for i in self.importers.get('/' + p, ()):
+			for i in self.importers.get(path, ()):
 				i._properties_changed_handler({'Value': v, 'Text': t})
 
 """
