@@ -438,6 +438,15 @@ class VeDbusRootExport(VeDbusTreeExport):
 	def ItemsChanged(self, changes):
 		pass
 
+	@dbus.service.method('com.victronenergy.BusItem', out_signature='a{sa{sv}}')
+	def GetItems(self):
+		return {
+			path: {
+				'Value': wrap_dbus_value(item.local_get_value()),
+				'Text': item.GetText() }
+			for path, item in self._service._dbusobjects.items()
+		}
+
 
 class VeDbusItemExport(dbus.service.Object):
 	## Constructor of VeDbusItemExport
