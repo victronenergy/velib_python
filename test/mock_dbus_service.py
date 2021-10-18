@@ -48,3 +48,11 @@ class MockDbusService(object):
 
     def __contains__(self, path):
         return path in self._dbusobjects
+
+    def __enter__(self):
+        # No batching done in mock object, and we already
+        # support the required dict interface.
+        return self
+
+    def __exit__(self, *exc):
+        pass
