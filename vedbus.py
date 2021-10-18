@@ -77,22 +77,9 @@ class VeDbusService(object):
 		self._dbusname = dbus.service.BusName(servicename, self._dbusconn, do_not_queue=True)
 
 		# Add the root item that will return all items as a tree
-		self._dbusnodes['/'] = self._create_tree_export(self._dbusconn, '/', self._get_tree_dict)
+		self._dbusnodes['/'] = self._create_tree_export(self._dbusconn, '/')
 
 		logging.info("registered ourselves on D-Bus as %s" % servicename)
-
-	def _get_tree_dict(self, path, get_text=False):
-		logging.debug("_get_tree_dict called for %s" % path)
-		r = {}
-		px = path
-		if not px.endswith('/'):
-			px += '/'
-		for p, item in self._dbusobjects.items():
-			if p.startswith(px):
-				v = item.GetText() if get_text else wrap_dbus_value(item.local_get_value())
-				r[p[len(px):]] = v
-		logging.debug(r)
-		return r
 
 	# To force immediate deregistering of this dbus service and all its object paths, explicitly
 	# call __del__().
@@ -124,7 +111,7 @@ class VeDbusService(object):
 		for i in range(2, len(spl)):
 			subPath = '/'.join(spl[:i])
 			if subPath not in self._dbusnodes and subPath not in self._dbusobjects:
-				self._dbusnodes[subPath] = self._create_tree_export(self._dbusconn, subPath, self._get_tree_dict)
+				self._dbusnodes[subPath] = self._create_tree_export(self._dbusconn, subPath)
 		self._dbusobjects[path] = item
 		logging.debug('added %s with start value %s. Writeable is %s' % (path, value, writeable))
 
@@ -143,8 +130,8 @@ class VeDbusService(object):
 		self.add_path('/HardwareVersion', hardwareversion)
 		self.add_path('/Connected', connected)
 
-	def _create_tree_export(self, bus, objectPath, get_value_handler):
-		return VeDbusTreeExport(bus, objectPath, get_value_handler)
+	def _create_tree_export(self, bus, objectPath):
+		return VeDbusTreeExport(bus, objectPath, self)
 
 	# Callback function that is called from the VeDbusItemExport objects when a value changes. This function
 	# maps the change-request to the onchangecallback given to us for this specific path.
@@ -405,9 +392,9 @@ class VeDbusItemImport(object):
 
 
 class VeDbusTreeExport(dbus.service.Object):
-	def __init__(self, bus, objectPath, get_value_handler):
+	def __init__(self, bus, objectPath, service):
 		dbus.service.Object.__init__(self, bus, objectPath)
-		self._get_value_handler = get_value_handler
+		self._service = service
 		logging.debug("VeDbusTreeExport %s has been created" % objectPath)
 
 	def __del__(self):
@@ -423,6 +410,19 @@ class VeDbusTreeExport(dbus.service.Object):
 		if len(self._locations) == 0:
 			return None
 		return self._locations[0][1]
+
+	def _get_value_handler(self, path, get_text=False):
+		logging.debug("_get_value_handler called for %s" % path)
+		r = {}
+		px = path
+		if not px.endswith('/'):
+			px += '/'
+		for p, item in self._service._dbusobjects.items():
+			if p.startswith(px):
+				v = item.GetText() if get_text else wrap_dbus_value(item.local_get_value())
+				r[p[len(px):]] = v
+		logging.debug(r)
+		return r
 
 	@dbus.service.method('com.victronenergy.BusItem', out_signature='v')
 	def GetValue(self):
