@@ -77,7 +77,7 @@ class VeDbusService(object):
 		self._dbusname = dbus.service.BusName(servicename, self._dbusconn, do_not_queue=True)
 
 		# Add the root item that will return all items as a tree
-		self._dbusnodes['/'] = self._create_tree_export(self._dbusconn, '/')
+		self._dbusnodes['/'] = VeDbusRootExport(self._dbusconn, '/', self)
 
 		logging.info("registered ourselves on D-Bus as %s" % servicename)
 
@@ -111,7 +111,7 @@ class VeDbusService(object):
 		for i in range(2, len(spl)):
 			subPath = '/'.join(spl[:i])
 			if subPath not in self._dbusnodes and subPath not in self._dbusobjects:
-				self._dbusnodes[subPath] = self._create_tree_export(self._dbusconn, subPath)
+				self._dbusnodes[subPath] = VeDbusTreeExport(self._dbusconn, subPath, self)
 		self._dbusobjects[path] = item
 		logging.debug('added %s with start value %s. Writeable is %s' % (path, value, writeable))
 
@@ -129,9 +129,6 @@ class VeDbusService(object):
 		self.add_path('/FirmwareVersion', firmwareversion)
 		self.add_path('/HardwareVersion', hardwareversion)
 		self.add_path('/Connected', connected)
-
-	def _create_tree_export(self, bus, objectPath):
-		return VeDbusTreeExport(bus, objectPath, self)
 
 	# Callback function that is called from the VeDbusItemExport objects when a value changes. This function
 	# maps the change-request to the onchangecallback given to us for this specific path.
@@ -436,6 +433,7 @@ class VeDbusTreeExport(dbus.service.Object):
 	def local_get_value(self):
 		return self._get_value_handler(self.path)
 
+class VeDbusRootExport(VeDbusTreeExport):
 	@dbus.service.signal('com.victronenergy.BusItem', signature='a{sa{sv}}')
 	def ItemsChanged(self, changes):
 		pass
