@@ -289,7 +289,11 @@ class DbusMonitor(object):
 			return
 
 		for path, changes in items.items():
-			v = unwrap_dbus_value(changes['Value'])
+			try:
+				v = unwrap_dbus_value(changes['Value'])
+			except (KeyError, TypeError):
+				continue
+
 			try:
 				t = changes['Text']
 			except KeyError:
@@ -485,10 +489,10 @@ class DbusMonitor(object):
 			# Check if objectPath in dict
 			try:
 				v = items[objectPath]
+				_v = unwrap_dbus_value(v['Value'])
 			except (KeyError, TypeError):
 				return # not in this dict
 
-			_v = unwrap_dbus_value(v['Value'])
 			try:
 				t = v['Text']
 			except KeyError:
