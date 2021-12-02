@@ -63,6 +63,7 @@ class VeDbusService(object):
 		self._dbusobjects = {}
 		self._dbusnodes = {}
 		self._ratelimiters = []
+		self._dbusname = None
 
 		# dict containing the onchange callbacks, for each object. Object path is the key
 		self._onchangecallbacks = {}
