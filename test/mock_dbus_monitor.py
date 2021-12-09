@@ -86,7 +86,7 @@ class MockDbusMonitor(object):
         item.set_value(value)
         self.set_seen(serviceName, objectPath)
         if self._value_changed_callback != None:
-            self._value_changed_callback(serviceName, objectPath, None, None, None)
+            self._value_changed_callback(serviceName, objectPath, None, value, None)
         if serviceName in self._watches:
             if objectPath in self._watches[serviceName]:
                 self._watches[serviceName][objectPath]({'Value': value, 'Text': str(value)})
