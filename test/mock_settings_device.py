@@ -2,7 +2,7 @@ PATH = 0
 VALUE = 1
 MINIMUM = 2
 MAXIMUM = 3
-
+SILENT = 4
 
 class MockSettingsItem(object):
     def __init__(self, parent, path):
