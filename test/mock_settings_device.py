@@ -29,12 +29,18 @@ class MockSettingsDevice(object):
         self._dbus_name = name
         self._settings = supported_settings
         self._event_callback = event_callback
+        self._settings_items = {}
 
     def addSetting(self, path, value, _min, _max, silent=False, callback=None):
         # Persist in our settings stash so the settings is available through
         # the mock item
         self._settings['addSetting'+path] = [path, value, _min, _max, silent]
         return MockSettingsItem(self, path)
+
+    def addSettings(self, settings):
+        for setting, options in settings.items():
+            silent = len(options) > SILENT and options[SILENT]
+            self._settings[setting] = [options[PATH], options[VALUE], options[MINIMUM], options[MAXIMUM], silent, None]
 
     def get_short_name(self, path):
         for k,v in self._settings.items():
