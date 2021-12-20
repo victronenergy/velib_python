@@ -133,11 +133,6 @@ def get_free_space(path):
 	return result
 
 
-def get_load_averages():
-	c = read_file('/proc/loadavg')
-	return c.split(' ')[:3]
-
-
 def _get_sysfs_machine_name():
 	try:
 		with open('/sys/firmware/devicetree/base/model', 'r') as f:
