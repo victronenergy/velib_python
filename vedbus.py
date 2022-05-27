@@ -99,14 +99,14 @@ class VeDbusService(object):
 	#							be the path of the object, second the new value. This callback should return
 	#							True to accept the change, False to reject it.
 	def add_path(self, path, value, description="", writeable=False,
-					onchangecallback=None, gettextcallback=None):
+					onchangecallback=None, gettextcallback=None, valuetype=None):
 
 		if onchangecallback is not None:
 			self._onchangecallbacks[path] = onchangecallback
 
 		item = VeDbusItemExport(
 				self._dbusconn, path, value, description, writeable,
-				self._value_changed, gettextcallback, deletecallback=self._item_deleted)
+				self._value_changed, gettextcallback, deletecallback=self._item_deleted, valuetype=valuetype)
 
 		spl = path.split('/')
 		for i in range(2, len(spl)):
@@ -463,7 +463,8 @@ class VeDbusItemExport(dbus.service.Object):
 	#                     over the dbus. First parameter passed to callback will be our path, second the new
 	#					  value. This callback should return True to accept the change, False to reject it.
 	def __init__(self, bus, objectPath, value=None, description=None, writeable=False,
-					onchangecallback=None, gettextcallback=None, deletecallback=None):
+					onchangecallback=None, gettextcallback=None, deletecallback=None,
+					valuetype=None):
 		dbus.service.Object.__init__(self, bus, objectPath)
 		self._onchangecallback = onchangecallback
 		self._gettextcallback = gettextcallback
@@ -471,6 +472,7 @@ class VeDbusItemExport(dbus.service.Object):
 		self._description = description
 		self._writeable = writeable
 		self._deletecallback = deletecallback
+		self._type = valuetype
 
 	# To force immediate deregistering of this dbus object, explicitly call __del__().
 	def __del__(self):
@@ -525,6 +527,16 @@ class VeDbusItemExport(dbus.service.Object):
 			return 1  # NOT OK
 
 		newvalue = unwrap_dbus_value(newvalue)
+
+		# If value type is enforced, cast it. If the type can be coerced
+		# python will do it for us. This allows ints to become floats,
+		# or bools to become ints. Additionally also allow None, so that
+		# a path may be invalidated.
+		if self._type is not None and newvalue is not None:
+			try:
+				newvalue = self._type(newvalue)
+			except (ValueError, TypeError):
+				return 1 # NOT OK
 
 		if newvalue == self._value:
 			return 0  # OK
