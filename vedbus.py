@@ -483,7 +483,6 @@ class VeDbusItemExport(dbus.service.Object):
 			return
 		if self._deletecallback is not None:
 			self._deletecallback(path)
-		self.local_set_value(None)
 		self.remove_from_connection()
 		logging.debug("VeDbusItemExport %s has been removed" % path)
 
