@@ -182,7 +182,9 @@ def get_product_id():
 		'Venus GX': 'C002',
 		'Octo GX': 'C006',
 		'EasySolar-II': 'C007',
-		'MultiPlus-II': 'C008'
+		'MultiPlus-II': 'C008',
+		'Maxi GX': 'C009',
+		'Cerbo GX': 'C00A'
 	}.get(name, 'C003') # C003 is Generic
 
 
