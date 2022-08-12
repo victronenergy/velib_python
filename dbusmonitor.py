@@ -54,8 +54,6 @@ class MonitoredValue(object):
 		return iter((self.value, self.text, self.options))
 
 class Service(object):
-	whentologoptions = ['configChange', 'onIntervalAlwaysAndOnEvent',
-		'onIntervalOnlyWhenChanged', 'onIntervalAlways', 'never']
 	def __init__(self, id, serviceName, deviceInstance):
 		super(Service, self).__init__()
 		self.id = id
@@ -63,12 +61,6 @@ class Service(object):
 		self.paths = {}
 		self._seen = set()
 		self.deviceInstance = deviceInstance
-
-		self.configChange = []
-		self.onIntervalAlwaysAndOnEvent = []
-		self.onIntervalOnlyWhenChanged = []
-		self.onIntervalAlways = []
-		self.never = []
 
 	# For legacy code, attributes can still be accessed as if keys from a
 	# dictionary.
@@ -90,7 +82,7 @@ class Service(object):
 class DbusMonitor(object):
 	## Constructor
 	def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
-					deviceRemovedCallback=None, vebusDeviceInstance0=False):
+					deviceRemovedCallback=None):
 		# valueChangedCallback is the callback that we call when something has changed.
 		# def value_changed_on_dbus(dbusServiceName, dbusPath, options, changes, deviceInstance):
 		# in which changes is a tuple with GetText() and GetValue()
@@ -98,7 +90,6 @@ class DbusMonitor(object):
 		self.deviceAddedCallback = deviceAddedCallback
 		self.deviceRemovedCallback = deviceRemovedCallback
 		self.dbusTree = dbusTree
-		self.vebusDeviceInstance0 = vebusDeviceInstance0
 
 		# Lists all tracked services. Stores name, id, device instance, value per path, and whenToLog info
 		# indexed by service name (eg. com.victronenergy.settings).
@@ -142,6 +133,15 @@ class DbusMonitor(object):
 
 		logger.info('===== Search on dbus for services that we will monitor finished =====')
 
+	@staticmethod
+	def make_service(serviceId, serviceName, deviceInstance):
+		""" Override this to use a different kind of service object. """
+		return Service(serviceId, serviceName, deviceInstance)
+
+	def make_monitor(self, service, path, value, text, options):
+		""" Override this to do more things with monitoring. """
+		return MonitoredValue(unwrap_dbus_value(value), unwrap_dbus_value(text), options)
+
 	def dbus_name_owner_changed(self, name, oldowner, newowner):
 		if not name.startswith("com.victronenergy."):
 			return
@@ -160,7 +160,6 @@ class DbusMonitor(object):
 			# it disappeared, we need to remove it.
 			logger.info("%s disappeared from the dbus. Removing it from our lists" % name)
 			service = self.servicesByName[name]
-			deviceInstance = service['deviceInstance']
 			del self.servicesById[service.id]
 			del self.servicesByName[name]
 			for watch in self.serviceWatches[name]:
@@ -168,7 +167,7 @@ class DbusMonitor(object):
 			del self.serviceWatches[name]
 			self.servicesByClass[service.service_class].remove(service)
 			if self.deviceRemovedCallback is not None:
-				self.deviceRemovedCallback(name, deviceInstance)
+				self.deviceRemovedCallback(name, service.deviceInstance)
 
 	def scan_dbus_service(self, serviceName):
 		try:
@@ -203,11 +202,7 @@ class DbusMonitor(object):
 		assert serviceName not in self.servicesByName
 		assert serviceId not in self.servicesById
 
-		# for vebus.ttyO1, this is workaround, since VRM Portal expects the main vebus
-		# devices at instance 0. Not sure how to fix this yet.
-		if serviceName == 'com.victronenergy.vebus.ttyO1' and self.vebusDeviceInstance0:
-			di = 0
-		elif serviceName == 'com.victronenergy.settings':
+		if serviceName == 'com.victronenergy.settings':
 			di = 0
 		elif serviceName.startswith('com.victronenergy.vecan.'):
 			di = 0
@@ -222,7 +217,7 @@ class DbusMonitor(object):
 				di = int(di)
 
 		logger.info("       %s has device instance %s" % (serviceName, di))
-		service = Service(serviceId, serviceName, di)
+		service = self.make_service(serviceId, serviceName, di)
 
 		# Let's try to fetch everything in one go
 		values = {}
@@ -236,8 +231,6 @@ class DbusMonitor(object):
 		for path, options in paths.items():
 			# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
 			# options will be a dictionary: {'code': 'V', 'whenToLog': 'onIntervalAlways'}
-			# check that the whenToLog setting is set to something we expect
-			assert options['whenToLog'] is None or options['whenToLog'] in Service.whentologoptions
 
 			# Try to obtain the value we want from our bulk fetch. If we
 			# cannot find it there, do an individual query.
@@ -262,10 +255,7 @@ class DbusMonitor(object):
 					value = None
 					text = None
 
-			service.paths[path] = MonitoredValue(unwrap_dbus_value(value), unwrap_dbus_value(text), options)
-
-			if options['whenToLog']:
-				service[options['whenToLog']].append(path)
+			service.paths[path] = self.make_monitor(service, path, unwrap_dbus_value(value), unwrap_dbus_value(text), options)
 
 
 		logger.debug("Finished scanning and storing items for %s" % serviceName)
@@ -440,44 +430,6 @@ class DbusMonitor(object):
 	def get_device_instance(self, serviceName):
 		return self.servicesByName[serviceName].deviceInstance
 
-	# Parameter categoryfilter is to be a list, containing the categories you want (configChange,
-	# onIntervalAlways, etc).
-	# Returns a dictionary, keys are codes + instance, in VRM querystring format. For example vvt[0]. And
-	# values are the value.
-	def get_values(self, categoryfilter, converter=None):
-
-		result = {}
-
-		for serviceName in self.servicesByName:
-			result.update(self.get_values_for_service(categoryfilter, serviceName, converter))
-
-		return result
-
-	# same as get_values above, but then for one service only
-	def get_values_for_service(self, categoryfilter, servicename, converter=None):
-		deviceInstance = self.get_device_instance(servicename)
-		result = {}
-
-		service = self.servicesByName[servicename]
-
-		for category in categoryfilter:
-
-			for path in service[category]:
-
-				value, text, options = service.paths[path]
-
-				if value is not None:
-
-					value = value if converter is None else converter.convert(path, options['code'], value, text)
-
-					precision = options.get('precision')
-					if precision:
-						value = round(value, precision)
-
-					result[options['code'] + "[" + str(deviceInstance) + "]"] = value
-
-		return result
-
 	def track_value(self, serviceName, objectPath, callback, *args, **kwargs):
 		""" A DbusMonitor can watch specific service/path combos for changes
 		    so that it is not fully reliant on the global handler_value_changes
@@ -574,12 +526,6 @@ def main():
 
 	d = DbusMonitor(monitorlist, value_changed_on_dbus,
 		deviceAddedCallback=nameownerchange, deviceRemovedCallback=nameownerchange)
-
-	# logger.info("==configchange values==")
-	# logger.info(pprint.pformat(d.get_values(['configChange'])))
-
-	# logger.info("==onIntervalAlways and onIntervalOnlyWhenChanged==")
-	# logger.info(pprint.pformat(d.get_values(['onIntervalAlways', 'onIntervalAlwaysAndOnEvent'])))
 
 	GLib.timeout_add(1000, print_values, d)
 
