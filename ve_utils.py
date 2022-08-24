@@ -171,7 +171,7 @@ def get_product_id():
 
 	# First try calling the venus utility script
 	try:
-		return check_output("/usr/bin/product-id").strip()
+		return check_output("/usr/bin/product-id").strip().decode('UTF-8')
 	except (CalledProcessError, OSError):
 		pass
 
