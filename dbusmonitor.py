@@ -82,7 +82,7 @@ class Service(object):
 class DbusMonitor(object):
 	## Constructor
 	def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
-					deviceRemovedCallback=None):
+					deviceRemovedCallback=None, namespace="com.victronenergy"):
 		# valueChangedCallback is the callback that we call when something has changed.
 		# def value_changed_on_dbus(dbusServiceName, dbusPath, options, changes, deviceInstance):
 		# in which changes is a tuple with GetText() and GetValue()
@@ -109,10 +109,11 @@ class DbusMonitor(object):
 		self.dbusConn = SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else SystemBus()
 
 		# subscribe to NameOwnerChange for bus connect / disconnect events.
-		(dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ \
-			else dbus.SystemBus()).add_signal_receiver(
-			self.dbus_name_owner_changed,
-			signal_name='NameOwnerChanged')
+		# NOTE: this is on a different bus then the one above!
+		standardBus = (dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ \
+			else dbus.SystemBus())
+
+		self.add_name_owner_changed_receiver(standardBus, self.dbus_name_owner_changed)
 
 		# Subscribe to PropertiesChanged for all services
 		self.dbusConn.add_signal_receiver(self.handler_value_changes,
@@ -148,6 +149,21 @@ class DbusMonitor(object):
 
 		#decouple, and process in main loop
 		GLib.idle_add(exit_on_error, self._process_name_owner_changed, name, oldowner, newowner)
+
+	@staticmethod
+	# When supported, only name owner changes for the the given namespace are reported. This
+	# prevents spending cpu time at irrelevant changes, like scripts accessing the bus temporarily.
+	def add_name_owner_changed_receiver(dbus, name_owner_changed, namespace="com.victronenergy"):
+		# support for arg0namespace is submitted upstream, but not included at the time of
+		# writing, Venus OS does support it, so try if it works.
+		if namespace is None:
+			dbus.add_signal_receiver(name_owner_changed, signal_name='NameOwnerChanged')
+		else:
+			try:
+				dbus.add_signal_receiver(name_owner_changed,
+					signal_name='NameOwnerChanged', arg0namespace=namespace)
+			except TypeError:
+				dbus.add_signal_receiver(name_owner_changed, signal_name='NameOwnerChanged')
 
 	def _process_name_owner_changed(self, name, oldowner, newowner):
 		if newowner != '':
