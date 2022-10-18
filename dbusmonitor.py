@@ -29,7 +29,7 @@ from collections import defaultdict
 from functools import partial
 
 # our own packages
-from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value
+from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value, add_name_owner_changed_receiver
 notfound = object() # For lookups where None is a valid result
 
 logger = logging.getLogger(__name__)
@@ -113,7 +113,7 @@ class DbusMonitor(object):
 		standardBus = (dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ \
 			else dbus.SystemBus())
 
-		self.add_name_owner_changed_receiver(standardBus, self.dbus_name_owner_changed)
+		add_name_owner_changed_receiver(standardBus, self.dbus_name_owner_changed)
 
 		# Subscribe to PropertiesChanged for all services
 		self.dbusConn.add_signal_receiver(self.handler_value_changes,
@@ -149,21 +149,6 @@ class DbusMonitor(object):
 
 		#decouple, and process in main loop
 		GLib.idle_add(exit_on_error, self._process_name_owner_changed, name, oldowner, newowner)
-
-	@staticmethod
-	# When supported, only name owner changes for the the given namespace are reported. This
-	# prevents spending cpu time at irrelevant changes, like scripts accessing the bus temporarily.
-	def add_name_owner_changed_receiver(dbus, name_owner_changed, namespace="com.victronenergy"):
-		# support for arg0namespace is submitted upstream, but not included at the time of
-		# writing, Venus OS does support it, so try if it works.
-		if namespace is None:
-			dbus.add_signal_receiver(name_owner_changed, signal_name='NameOwnerChanged')
-		else:
-			try:
-				dbus.add_signal_receiver(name_owner_changed,
-					signal_name='NameOwnerChanged', arg0namespace=namespace)
-			except TypeError:
-				dbus.add_signal_receiver(name_owner_changed, signal_name='NameOwnerChanged')
 
 	def _process_name_owner_changed(self, name, oldowner, newowner):
 		if newowner != '':

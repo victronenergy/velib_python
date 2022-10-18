@@ -260,3 +260,17 @@ def unwrap_dbus_value(val):
 	if isinstance(val, dbus.Boolean):
 		return bool(val)
 	return val
+
+# When supported, only name owner changes for the the given namespace are reported. This
+# prevents spending cpu time at irrelevant changes, like scripts accessing the bus temporarily.
+def add_name_owner_changed_receiver(dbus, name_owner_changed, namespace="com.victronenergy"):
+	# support for arg0namespace is submitted upstream, but not included at the time of
+	# writing, Venus OS does support it, so try if it works.
+	if namespace is None:
+		dbus.add_signal_receiver(name_owner_changed, signal_name='NameOwnerChanged')
+	else:
+		try:
+			dbus.add_signal_receiver(name_owner_changed,
+				signal_name='NameOwnerChanged', arg0namespace=namespace)
+		except TypeError:
+			dbus.add_signal_receiver(name_owner_changed, signal_name='NameOwnerChanged')
