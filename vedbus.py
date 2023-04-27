@@ -99,13 +99,13 @@ class VeDbusService(object):
 	#							be the path of the object, second the new value. This callback should return
 	#							True to accept the change, False to reject it.
 	def add_path(self, path, value, description="", writeable=False,
-					onchangecallback=None, gettextcallback=None, valuetype=None):
+					onchangecallback=None, gettextcallback=None, valuetype=None, itemtype=None):
 
 		if onchangecallback is not None:
 			self._onchangecallbacks[path] = onchangecallback
 
-		item = VeDbusItemExport(
-				self._dbusconn, path, value, description, writeable,
+		itemtype = itemtype or VeDbusItemExport
+		item = itemtype(self._dbusconn, path, value, description, writeable,
 				self._value_changed, gettextcallback, deletecallback=self._item_deleted, valuetype=valuetype)
 
 		spl = path.split('/')
