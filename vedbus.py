@@ -95,6 +95,9 @@ class VeDbusService(object):
 			self._dbusname.__del__()  # Forces call to self._bus.release_name(self._name), see source code
 		self._dbusname = None
 
+	def get_name(self):
+		return self._dbusname.get_name()
+
 	# @param callbackonchange	function that will be called when this value is changed. First parameter will
 	#							be the path of the object, second the new value. This callback should return
 	#							True to accept the change, False to reject it.
