@@ -1,3 +1,5 @@
+#!/usr/bin/python3 -u
+
 import fcntl
 import threading
 import logging
@@ -243,5 +245,15 @@ class MosquittoBridgeRegistrator(object):
 def get_random_string(size=32):
 	"""Creates a random (hex) string which contains 'size' characters."""
 	return ''.join("{0:02x}".format(b) for b in open('/dev/urandom', 'rb').read(int(size/2)))
+
+def main():
+	from ve_utils import get_vrm_portal_id
+	vrmid = get_vrm_portal_id()
+
+	registrator = MosquittoBridgeRegistrator(vrmid)
+	registrator.register()
+
+if __name__ == "__main__":
+    main()
 
 # vim: noexpandtab:shiftwidth=4:tabstop=4:softtabstop=0
