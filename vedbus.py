@@ -194,6 +194,13 @@ class ServiceContext(object):
 		if self.changes:
 			self.parent._dbusnodes['/'].ItemsChanged(self.changes)
 
+	def add_path(self, path, value, *args, **kwargs):
+		self.parent.add_path(path, value, *args, **kwargs)
+		self.changes[path] = {
+			'Value': wrap_dbus_value(value),
+			'Text': self.parent._dbusobjects[path].GetText()
+		}
+
 class TrackerDict(defaultdict):
 	""" Same as defaultdict, but passes the key to default_factory. """
 	def __missing__(self, key):
