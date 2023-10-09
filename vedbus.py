@@ -201,6 +201,13 @@ class ServiceContext(object):
 			'Text': self.parent._dbusobjects[path].GetText()
 		}
 
+	def del_tree(self, root):
+		root = root.rstrip('/')
+		for p in list(self.parent._dbusobjects.keys()):
+			if p == root or p.startswith(root + '/'):
+				self[p] = None
+				self.parent._dbusobjects[p].__del__()
+
 class TrackerDict(defaultdict):
 	""" Same as defaultdict, but passes the key to default_factory. """
 	def __missing__(self, key):
