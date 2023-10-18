@@ -193,6 +193,7 @@ class ServiceContext(object):
 	def flush(self):
 		if self.changes:
 			self.parent._dbusnodes['/'].ItemsChanged(self.changes)
+			self.changes.clear()
 
 	def add_path(self, path, value, *args, **kwargs):
 		self.parent.add_path(path, value, *args, **kwargs)
