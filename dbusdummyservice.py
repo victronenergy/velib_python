@@ -22,7 +22,7 @@ sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../ext/velib_python'
 from vedbus import VeDbusService
 
 class DbusDummyService(object):
-    def __init__(self, servicename, deviceinstance, paths, productname='Dummy product', connection='Dummy service'):
+    def __init__(self, servicename, deviceinstance, paths, productname='Dummy product', connection='Dummy service', productid=0):
         self._dbusservice = VeDbusService(servicename)
         self._paths = paths
 
@@ -35,7 +35,7 @@ class DbusDummyService(object):
 
         # Create the mandatory objects
         self._dbusservice.add_path('/DeviceInstance', deviceinstance)
-        self._dbusservice.add_path('/ProductId', 0)
+        self._dbusservice.add_path('/ProductId', productid)
         self._dbusservice.add_path('/ProductName', productname)
         self._dbusservice.add_path('/FirmwareVersion', 0)
         self._dbusservice.add_path('/HardwareVersion', 0)
