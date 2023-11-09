@@ -182,6 +182,9 @@ class ServiceContext(object):
 		self.parent = parent
 		self.changes = {}
 
+	def __contains__(self, path):
+		return path in self.parent
+
 	def __getitem__(self, path):
 		return self.parent[path]
 
@@ -189,6 +192,11 @@ class ServiceContext(object):
 		c = self.parent._dbusobjects[path]._local_set_value(newvalue)
 		if c is not None:
 			self.changes[path] = c
+
+	def __delitem__(self, path):
+		if path in self.changes:
+			del self.changes[path]
+		del self.parent[path]
 
 	def flush(self):
 		if self.changes:
@@ -208,6 +216,9 @@ class ServiceContext(object):
 			if p == root or p.startswith(root + '/'):
 				self[p] = None
 				self.parent._dbusobjects[p].__del__()
+
+	def get_name(self):
+		return self.parent.get_name()
 
 class TrackerDict(defaultdict):
 	""" Same as defaultdict, but passes the key to default_factory. """
