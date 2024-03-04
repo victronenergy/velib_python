@@ -7,7 +7,7 @@ class MockDbusService(object):
         self._service_name = servicename
 
     def add_path(self, path, value, description="", writeable=False, onchangecallback=None,
-                 gettextcallback=None):
+                 gettextcallback=None, itemtype=None):
         self._dbusobjects[path] = value
         if onchangecallback is not None:
             self._callbacks[path] = onchangecallback
