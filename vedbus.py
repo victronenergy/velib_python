@@ -118,6 +118,7 @@ class VeDbusService(object):
 				self._dbusnodes[subPath] = VeDbusTreeExport(self._dbusconn, subPath, self)
 		self._dbusobjects[path] = item
 		logging.debug('added %s with start value %s. Writeable is %s' % (path, value, writeable))
+		return item
 
 	# Add the mandatory paths, as per victron dbus api doc
 	def add_mandatory_paths(self, processname, processversion, connection,
