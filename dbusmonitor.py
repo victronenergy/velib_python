@@ -33,7 +33,7 @@ from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value, add_name
 notfound = object() # For lookups where None is a valid result
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+
 class SystemBus(dbus.bus.BusConnection):
 	def __new__(cls):
 		return dbus.bus.BusConnection.__new__(cls, dbus.bus.BusConnection.TYPE_SYSTEM)
