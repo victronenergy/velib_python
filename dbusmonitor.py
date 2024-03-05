@@ -190,7 +190,7 @@ class DbusMonitor(object):
 		# make it a normal string instead of dbus string
 		serviceName = str(serviceName)
 
-		paths = self.dbusTree.get('.'.join(serviceName.split('.')[0:3]), None)
+		paths = self.dbusTree.get('.'.join(serviceName.split('.')[0:4]), None)
 		if paths is None:
 			logger.debug("Ignoring service %s, not in the tree" % serviceName)
 			return False
