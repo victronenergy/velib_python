@@ -82,7 +82,7 @@ class Service(object):
 class DbusMonitor(object):
 	## Constructor
 	def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
-					deviceRemovedCallback=None, namespace="com.victronenergy"):
+					deviceRemovedCallback=None, namespace="com.victronenergy", ignoreServices=[]):
 		# valueChangedCallback is the callback that we call when something has changed.
 		# def value_changed_on_dbus(dbusServiceName, dbusPath, options, changes, deviceInstance):
 		# in which changes is a tuple with GetText() and GetValue()
@@ -90,6 +90,7 @@ class DbusMonitor(object):
 		self.deviceAddedCallback = deviceAddedCallback
 		self.deviceRemovedCallback = deviceRemovedCallback
 		self.dbusTree = dbusTree
+		self.ignoreServices = ignoreServices
 
 		# Lists all tracked services. Stores name, id, device instance, value per path, and whenToLog info
 		# indexed by service name (eg. com.victronenergy.settings).
@@ -189,6 +190,10 @@ class DbusMonitor(object):
 
 		# make it a normal string instead of dbus string
 		serviceName = str(serviceName)
+
+		if (len(self.ignoreServices) != 0 and any(serviceName.startswith(x) for x in self.ignoreServices)):
+			logger.debug("Ignoring service %s" % serviceName)
+			return False
 
 		paths = self.dbusTree.get('.'.join(serviceName.split('.')[0:3]), None)
 		if paths is None:
