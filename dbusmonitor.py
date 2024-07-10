@@ -208,6 +208,15 @@ class DbusMonitor(object):
 		assert serviceName not in self.servicesByName
 		assert serviceId not in self.servicesById
 
+		# Try to fetch everything with a GetItems, then fall back to older
+		# methods if that fails
+		try:
+			values = self.dbusConn.call_blocking(serviceName, '/', None, 'GetItems', '', [])
+		except dbus.exceptions.DBusException:
+			logger.info("GetItems failed, trying legacy methods")
+		else:
+			return self.scan_dbus_service_getitems_done(serviceName, serviceId, values)
+
 		if serviceName == 'com.victronenergy.settings':
 			di = 0
 		elif serviceName.startswith('com.victronenergy.vecan.'):
@@ -272,6 +281,40 @@ class DbusMonitor(object):
 		self.servicesById[serviceId] = service
 		self.servicesByClass[service.service_class].append(service)
 
+		return True
+
+	def scan_dbus_service_getitems_done(self, serviceName, serviceId, values):
+		# Keeping these exceptions for legacy reasons
+		if serviceName == 'com.victronenergy.settings':
+			di = 0
+		elif serviceName.startswith('com.victronenergy.vecan.'):
+			di = 0
+		else:
+			try:
+				di = values['/DeviceInstance']['Value']
+			except KeyError:
+				logger.info("       %s was skipped because it has no device instance" % serviceName)
+				return False
+			else:
+				di = int(di)
+
+		logger.info("       %s has device instance %s" % (serviceName, di))
+		service = self.make_service(serviceId, serviceName, di)
+
+		paths = self.dbusTree.get('.'.join(serviceName.split('.')[0:3]), {})
+		for path, options in paths.items():
+			item = values.get(path, notfound)
+			if item is notfound:
+				service.paths[path] = self.make_monitor(service, path, None, None, options)
+			else:
+				service.set_seen(path)
+				value = item.get('Value', None)
+				text = item.get('Text', None)
+				service.paths[path] = self.make_monitor(service, path, unwrap_dbus_value(value), unwrap_dbus_value(text), options)
+
+		self.servicesByName[serviceName] = service
+		self.servicesById[serviceId] = service
+		self.servicesByClass[service.service_class].append(service)
 		return True
 
 	def handler_item_changes(self, items, senderId):
