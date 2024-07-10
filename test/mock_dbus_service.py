@@ -12,6 +12,10 @@ class MockDbusService(object):
         if onchangecallback is not None:
             self._callbacks[path] = onchangecallback
 
+    def register(self):
+        # Nothing to do when mocking
+        pass
+
     # Add the mandatory paths, as per victron dbus api doc
     def add_mandatory_paths(self, processname, processversion, connection,
             deviceinstance, productid, productname, firmwareversion, hardwareversion, connected):

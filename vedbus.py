@@ -64,6 +64,7 @@ class VeDbusService(object):
 		self._dbusnodes = {}
 		self._ratelimiters = []
 		self._dbusname = None
+		self.name = servicename
 
 		# dict containing the onchange callbacks, for each object. Object path is the key
 		self._onchangecallbacks = {}
@@ -74,13 +75,13 @@ class VeDbusService(object):
 		# make the dbus connection available to outside, could make this a true property instead, but ach..
 		self.dbusconn = self._dbusconn
 
-		# Register ourselves on the dbus, trigger an error if already in use (do_not_queue)
-		self._dbusname = dbus.service.BusName(servicename, self._dbusconn, do_not_queue=True)
-
 		# Add the root item that will return all items as a tree
 		self._dbusnodes['/'] = VeDbusRootExport(self._dbusconn, '/', self)
 
-		logging.info("registered ourselves on D-Bus as %s" % servicename)
+	def register(self):
+		# Register ourselves on the dbus, trigger an error if already in use (do_not_queue)
+		self._dbusname = dbus.service.BusName(self.name, self._dbusconn, do_not_queue=True)
+		logging.info("registered ourselves on D-Bus as %s" % self.name)
 
 	# To force immediate deregistering of this dbus service and all its object paths, explicitly
 	# call __del__().
