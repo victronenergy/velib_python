@@ -45,6 +45,7 @@ class DbusDummyService(object):
             self._dbusservice.add_path(
                 path, settings['initial'], writeable=True, onchangecallback=self._handlechangedvalue)
 
+        self._dbusservice.register()
         GLib.timeout_add(1000, self._update)
 
     def _update(self):
