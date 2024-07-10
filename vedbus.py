@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from gi.repository import GLib
 import dbus.service
 import logging
 import traceback
 import os
 import weakref
 from collections import defaultdict
-from ve_utils import wrap_dbus_value, unwrap_dbus_value
+from ve_utils import exit_on_error, wrap_dbus_value, unwrap_dbus_value
 
 # vedbus contains three classes:
 # VeDbusItemImport -> use this to read data from the dbus, ie import
@@ -74,13 +75,19 @@ class VeDbusService(object):
 		# make the dbus connection available to outside, could make this a true property instead, but ach..
 		self.dbusconn = self._dbusconn
 
-		# Register ourselves on the dbus, trigger an error if already in use (do_not_queue)
-		self._dbusname = dbus.service.BusName(servicename, self._dbusconn, do_not_queue=True)
-
 		# Add the root item that will return all items as a tree
 		self._dbusnodes['/'] = VeDbusRootExport(self._dbusconn, '/', self)
 
+		# Register ourselves on the dbus, quit if already in use.
+		# Do this in the next iteration of the event loop, to give the current
+		# one a chance to finish constructing the service. That avoids
+		# race conditions.
+		GLib.idle_add(exit_on_error, self._register_name, servicename)
+
+	def _register_name(self, servicename):
+		self._dbusname = dbus.service.BusName(servicename, self._dbusconn, do_not_queue=True)
 		logging.info("registered ourselves on D-Bus as %s" % servicename)
+		return False
 
 	# To force immediate deregistering of this dbus service and all its object paths, explicitly
 	# call __del__().
