@@ -32,7 +32,7 @@ def main(argv):
 		DBusGMainLoop(set_as_default=True)
 
 		# Put ourselves on to the dbus
-		dbusservice = VeDbusService('com.victronenergy.example')
+		dbusservice = VeDbusService('com.victronenergy.example', register=False)
 
 		# Most simple and short way to add an object with an initial value of 5.
 		dbusservice.add_path('/Position', value=5)

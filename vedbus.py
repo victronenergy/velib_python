@@ -58,7 +58,7 @@ from ve_utils import wrap_dbus_value, unwrap_dbus_value
 
 # Export ourselves as a D-Bus service.
 class VeDbusService(object):
-	def __init__(self, servicename, bus=None):
+	def __init__(self, servicename, bus=None, register=True):
 		# dict containing the VeDbusItemExport objects, with their path as the key.
 		self._dbusobjects = {}
 		self._dbusnodes = {}
@@ -77,6 +77,10 @@ class VeDbusService(object):
 
 		# Add the root item that will return all items as a tree
 		self._dbusnodes['/'] = VeDbusRootExport(self._dbusconn, '/', self)
+
+		# Immediately register the service unless requested not to
+		if register:
+			self.register()
 
 	def register(self):
 		# Register ourselves on the dbus, trigger an error if already in use (do_not_queue)
