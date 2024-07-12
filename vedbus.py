@@ -80,6 +80,10 @@ class VeDbusService(object):
 
 		# Immediately register the service unless requested not to
 		if register:
+			logging.warning("USING OUTDATED REGISTRATION METHOD!")
+			logging.warning("Please set register=False, then call the register method "
+				"after adding all mandatory paths. See "
+				"https://github.com/victronenergy/venus/wiki/dbus-api")
 			self.register()
 
 	def register(self):
