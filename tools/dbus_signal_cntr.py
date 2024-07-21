@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from dbus.mainloop.glib import DBusGMainLoop
-import gobject
+from gi.repository import GObject as gobject
 import dbus
 import dbus.service
 from pprint import pprint
@@ -66,7 +66,7 @@ def printall():
 
 	print(row_format.format("Total", total, 100, total / t_elapsed))
 
-	for service, values in items.iteritems():
+	for service, values in items.items():
 		# skip the services that didn't emit any signals
 		if len(values) == 2 and "_name" in values:
 			continue
