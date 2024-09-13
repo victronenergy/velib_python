@@ -9,6 +9,7 @@ import requests
 import subprocess
 import traceback
 from ve_utils import exit_on_error
+
 VrmNumberOfBrokers = 128
 VrmApiServer = 'https://ccgxlogging.victronenergy.com'
 CaBundlePath = "/etc/ssl/certs/ccgx-ca.pem"
@@ -17,6 +18,7 @@ SettingsPath = os.environ.get('DBUS_MQTT_PATH') or '/data/conf/flashmq.d'
 BridgeConfigPath = os.path.join(SettingsPath, 'vrm_bridge.conf')
 MosquittoConfig = '/data/conf/mosquitto.d/vrm_bridge.conf'
 MqttPasswordFile = "/data/conf/mqtt_password.txt"
+
 BridgeSettingsRPC = '''
 bridge {{
   protocol_version mqtt5
@@ -271,15 +273,17 @@ class MosquittoBridgeRegistrator(object):
 						config += config_rpc
 						config += config_dbus
 						# Do we need to adjust the settings file?
-						if config != orig_config:
+						changed = config != orig_config
+						if changed:
 							logging.info('[InitBroker] Writing new config file')
 							self._write_config_atomically(BridgeConfigPath, config)
-							self._restart_broker()
 						else:
-							logging.info('[InitBroker] Not updating config file and not restarting FlashMQ, because config is correct.')
+							logging.info('[InitBroker] Not updating the config file, because config is correct.')
 						self._init_broker_timer = None
 						logging.getLogger("requests").setLevel(self._requests_log_level)
 						logging.info('[InitBroker] Registration successful')
+						if changed:
+							os._exit(100)
 						return False
 					if not quiet:
 						logging.error('VRM registration failed. Http status was: {}'.format(r.status_code))
@@ -289,10 +293,6 @@ class MosquittoBridgeRegistrator(object):
 				traceback.print_exc()
 		# Notify the timer we want to be called again
 		return True
-
-	def _restart_broker(self):
-		logging.info('Restarting broker')
-		subprocess.call(['svc', '-t', '/service/flashmq'])
 
 	def get_password(self):
 		assert self._global_broker_password is not None
