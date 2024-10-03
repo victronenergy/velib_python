@@ -222,7 +222,7 @@ class DbusMonitor(object):
 		else:
 			return self.scan_dbus_service_getitems_done(serviceName, serviceId, values)
 
-		if serviceName == 'com.victronenergy.settings':
+		if serviceName == 'com.victronenergy.settings' or serviceName == 'com.victronenergy.platform':
 			di = 0
 		elif serviceName.startswith('com.victronenergy.vecan.'):
 			di = 0
