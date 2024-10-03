@@ -290,7 +290,7 @@ class DbusMonitor(object):
 
 	def scan_dbus_service_getitems_done(self, serviceName, serviceId, values):
 		# Keeping these exceptions for legacy reasons
-		if serviceName == 'com.victronenergy.settings':
+		if serviceName == 'com.victronenergy.settings' or serviceName == 'com.victronenergy.platform':
 			di = 0
 		elif serviceName.startswith('com.victronenergy.vecan.'):
 			di = 0
