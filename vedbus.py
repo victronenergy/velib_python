@@ -107,7 +107,7 @@ class VeDbusService(object):
 		self._dbusname = None
 
 	def get_name(self):
-		return self._dbusname.get_name()
+		return self.name
 
 	# @param callbackonchange	function that will be called when this value is changed. First parameter will
 	#							be the path of the object, second the new value. This callback should return
