@@ -59,12 +59,30 @@ class SettingsDevice(object):
 		logging.debug("===== Settings device init finished =====")
 
 	def addSettings(self, settings):
-		for setting, options in settings.items():
-			silent = len(options) > SILENT and options[SILENT]
-			busitem = self.addSetting(options[PATH], options[VALUE],
-				options[MINIMUM], options[MAXIMUM], silent, callback=partial(self.handleChangedSetting, setting))
-			self._settings[setting] = busitem
-			self._values[setting] = busitem.get_value()
+		# We need a lookup table to map the path back to the setting name/alias
+		lookup = {options[PATH]: setting for setting, options in settings.items()}
+		li = [{
+			"path": options[PATH],
+			"default": options[VALUE],
+			"min": options[MINIMUM],
+			"max": options[MAXIMUM],
+			"silent": len(options) > SILENT and options[SILENT]
+		} for setting, options in settings.items()]
+		result = self._bus.call_blocking(self._dbus_name, '/',
+			'com.victronenergy.Settings', 'AddSettings',
+			'aa{sv}', [li])
+
+		for r in result:
+			if (error := r["error"]) == 0:
+				setting = lookup[r['path']]
+				busitem = VeDbusItemImport(self._bus, self._dbus_name,
+					r["path"],
+					eventCallback=partial(self.handleChangedSetting, setting))
+				self._settings[setting] = busitem
+				self._values[setting] = busitem.get_value()
+			else:
+				logging.error(f"Failed to add setting {r['path']}, error {error}")
+
 
 	def addSetting(self, path, value, _min, _max, silent=False, callback=None):
 		busitem = VeDbusItemImport(self._bus, self._dbus_name, path, callback)
