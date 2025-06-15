@@ -9,6 +9,8 @@ import weakref
 from collections import defaultdict
 from ve_utils import wrap_dbus_value, unwrap_dbus_value
 
+notset = object()
+
 # vedbus contains three classes:
 # VeDbusItemImport -> use this to read data from the dbus, ie import
 # VeDbusItemExport -> use this to export data to the dbus (one value)
@@ -297,7 +299,7 @@ make sure to also subscribe to the NamerOwnerChanged signal on bus-level. Or jus
 because that takes care of all of that for you.
 """
 class VeDbusItemImport(object):
-	def __new__(cls, bus, serviceName, path, eventCallback=None, createsignal=True):
+	def __new__(cls, bus, serviceName, path, eventCallback=None, createsignal=True, initialValue=notset):
 		instance = object.__new__(cls)
 
 		# If signal tracking should be done, also add to root tracker
@@ -315,7 +317,7 @@ class VeDbusItemImport(object):
 	# @param createSignal   only set this to False if you use this function to one time read a value. When
 	#						leaving it to True, make sure to also subscribe to the NameOwnerChanged signal
 	#						elsewhere. See also note some 15 lines up.
-	def __init__(self, bus, serviceName, path, eventCallback=None, createsignal=True):
+	def __init__(self, bus, serviceName, path, eventCallback=None, createsignal=True, initialValue=notset):
 		# TODO: is it necessary to store _serviceName and _path? Isn't it
 		# stored in the bus_getobjectsomewhere?
 		self._serviceName = serviceName
@@ -331,15 +333,20 @@ class VeDbusItemImport(object):
 				"PropertiesChanged", weak_functor(self._properties_changed_handler))
 			self._roots[serviceName].add(self)
 
-		# store the current value in _cachedvalue. When it doesn't exists set _cachedvalue to
-		# None, same as when a value is invalid
-		self._cachedvalue = None
-		try:
-			v = self._proxy.GetValue()
-		except dbus.exceptions.DBusException:
-			pass
+		# store the current value in _cachedvalue. When it doesn't exists set
+		# _cachedvalue to None, same as when a value is invalid. If an
+		# initialValue is provided, used that. That allows passing in a value
+		# if already known and skip the GetValue.
+		if initialValue is notset:
+			self._cachedvalue = None
+			try:
+				v = self._proxy.GetValue()
+			except dbus.exceptions.DBusException:
+				pass
+			else:
+				self._cachedvalue = unwrap_dbus_value(v)
 		else:
-			self._cachedvalue = unwrap_dbus_value(v)
+			self._cachedvalue = initialValue
 
 	def __del__(self):
 		if self._match is not None:

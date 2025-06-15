@@ -5,6 +5,7 @@ from functools import partial
 
 # Local imports
 from vedbus import VeDbusItemImport
+from ve_utils import unwrap_dbus_value
 
 ## Indexes for the setting dictonary.
 PATH = 0
@@ -77,7 +78,8 @@ class SettingsDevice(object):
 				setting = lookup[r['path']]
 				busitem = VeDbusItemImport(self._bus, self._dbus_name,
 					r["path"],
-					eventCallback=partial(self.handleChangedSetting, setting))
+					eventCallback=partial(self.handleChangedSetting, setting),
+					initialValue = unwrap_dbus_value(r['value']))
 				self._settings[setting] = busitem
 				self._values[setting] = busitem.get_value()
 			else:
