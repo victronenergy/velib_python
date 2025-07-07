@@ -440,22 +440,15 @@ class VeDbusItemImport(object):
 class VeDbusTreeExport(dbus.service.Object):
 	def __init__(self, bus, objectPath, service):
 		dbus.service.Object.__init__(self, bus, objectPath)
+		self._path = objectPath
 		self._service = service
 		logging.debug("VeDbusTreeExport %s has been created" % objectPath)
 
 	def __del__(self):
-		# self._get_path() will raise an exception when retrieved after the call to .remove_from_connection,
-		# so we need a copy.
-		path = self._get_path()
-		if path is None:
-			return
+		if self._path is None: return
 		self.remove_from_connection()
-		logging.debug("VeDbusTreeExport %s has been removed" % path)
-
-	def _get_path(self):
-		if len(self._locations) == 0:
-			return None
-		return self._locations[0][1]
+		logging.debug("VeDbusTreeExport %s has been removed" % self._path)
+		self._path = None
 
 	def _get_value_handler(self, path, get_text=False):
 		logging.debug("_get_value_handler called for %s" % path)
@@ -472,12 +465,12 @@ class VeDbusTreeExport(dbus.service.Object):
 
 	@dbus.service.method('com.victronenergy.BusItem', out_signature='v')
 	def GetValue(self):
-		value = self._get_value_handler(self._get_path())
+		value = self._get_value_handler(self._path)
 		return dbus.Dictionary(value, signature=dbus.Signature('sv'), variant_level=1)
 
 	@dbus.service.method('com.victronenergy.BusItem', out_signature='v')
 	def GetText(self):
-		return self._get_value_handler(self._get_path(), True)
+		return self._get_value_handler(self._path, True)
 
 	def local_get_value(self):
 		return self._get_value_handler(self.path)
@@ -514,6 +507,7 @@ class VeDbusItemExport(dbus.service.Object):
 					onchangecallback=None, gettextcallback=None, deletecallback=None,
 					valuetype=None):
 		dbus.service.Object.__init__(self, bus, objectPath)
+		self._path = objectPath
 		self._onchangecallback = onchangecallback
 		self._gettextcallback = gettextcallback
 		self._value = value
@@ -524,20 +518,12 @@ class VeDbusItemExport(dbus.service.Object):
 
 	# To force immediate deregistering of this dbus object, explicitly call __del__().
 	def __del__(self):
-		# self._get_path() will raise an exception when retrieved after the
-		# call to .remove_from_connection, so we need a copy.
-		path = self._get_path()
-		if path == None:
-			return
+		if self._path is None: return
 		if self._deletecallback is not None:
-			self._deletecallback(path)
+			self._deletecallback(self._path)
 		self.remove_from_connection()
-		logging.debug("VeDbusItemExport %s has been removed" % path)
-
-	def _get_path(self):
-		if len(self._locations) == 0:
-			return None
-		return self._locations[0][1]
+		logging.debug("VeDbusItemExport %s has been removed" % self._path)
+		self._path = None
 
 	## Sets the value. And in case the value is different from what it was, a signal
 	# will be emitted to the dbus. This function is to be used in the python code that
