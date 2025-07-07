@@ -78,7 +78,7 @@ class VeDbusService(object):
 		self.dbusconn = self._dbusconn
 
 		# Add the root item that will return all items as a tree
-		self._dbusnodes['/'] = VeDbusRootExport(self._dbusconn, '/', self)
+		self._dbusnodes['/'] = self.root = VeDbusRootExport(self._dbusconn, '/', self)
 
 		# Immediately register the service unless requested not to
 		if register is None:
@@ -214,7 +214,7 @@ class ServiceContext(object):
 
 	def flush(self):
 		if self.changes:
-			self.parent._dbusnodes['/'].ItemsChanged(self.changes)
+			self.parent.root.ItemsChanged(self.changes)
 			self.changes.clear()
 
 	def add_path(self, path, value, *args, **kwargs):

@@ -137,7 +137,6 @@ class DbusMonitor(object):
 		serviceNames = self.dbusConn.list_names()
 		for serviceName in serviceNames:
 			self.scan_dbus_service(serviceName)
-
 		logger.info('===== Search on dbus for services that we will monitor finished =====')
 
 	@staticmethod
@@ -177,6 +176,13 @@ class DbusMonitor(object):
 				self.deviceRemovedCallback(name, service.deviceInstance)
 
 	def scan_dbus_service(self, serviceName):
+		# make it a normal string instead of dbus string
+		serviceName = str(serviceName)
+
+		if any(serviceName.startswith(x) for x in self.ignoreServices):
+			logger.debug("Ignoring service %s" % serviceName)
+			return False
+
 		try:
 			return self.scan_dbus_service_inner(serviceName)
 		except:
@@ -192,14 +198,6 @@ class DbusMonitor(object):
 	# Scans the given dbus service to see if it contains anything interesting for us. If it does, add
 	# it to our list of monitored D-Bus services.
 	def scan_dbus_service_inner(self, serviceName):
-
-		# make it a normal string instead of dbus string
-		serviceName = str(serviceName)
-
-		if (len(self.ignoreServices) != 0 and any(serviceName.startswith(x) for x in self.ignoreServices)):
-			logger.debug("Ignoring service %s" % serviceName)
-			return False
-
 		paths = self.dbusTree.get('.'.join(serviceName.split('.')[0:3]), None)
 		if paths is None:
 			logger.debug("Ignoring service %s, not in the tree" % serviceName)
