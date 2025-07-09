@@ -134,8 +134,7 @@ class DbusMonitor(object):
 			sender_keyword='senderId')
 
 		logger.info('===== Search on dbus for services that we will monitor starting... =====')
-		serviceNames = self.dbusConn.list_names()
-		for serviceName in serviceNames:
+		for serviceName in self.wanted_service_names():
 			self.scan_dbus_service(serviceName)
 		logger.info('===== Search on dbus for services that we will monitor finished =====')
 
@@ -149,7 +148,7 @@ class DbusMonitor(object):
 		return MonitoredValue(unwrap_dbus_value(value), unwrap_dbus_value(text), options)
 
 	def dbus_name_owner_changed(self, name, oldowner, newowner):
-		if not name.startswith("com.victronenergy."):
+		if not self.service_wanted(name):
 			return
 
 		#decouple, and process in main loop
@@ -158,8 +157,8 @@ class DbusMonitor(object):
 	def _process_name_owner_changed(self, name, oldowner, newowner):
 		if newowner != '':
 			# so we found some new service. Check if we can do something with it.
-			newdeviceadded = self.scan_dbus_service(name)
-			if newdeviceadded and self.deviceAddedCallback is not None:
+			if self.service_wanted(name) and self.scan_dbus_service(name) and \
+					self.deviceAddedCallback is not None:
 				self.deviceAddedCallback(name, self.get_device_instance(name))
 
 		elif name in self.servicesByName:
@@ -175,14 +174,18 @@ class DbusMonitor(object):
 			if self.deviceRemovedCallback is not None:
 				self.deviceRemovedCallback(name, service.deviceInstance)
 
+	def service_wanted(self, serviceName):
+		return not any(
+			serviceName.startswith(x) for x in self.ignoreServices) and (
+			serviceName.startswith('com.victronenergy.')) and (
+			'.'.join(serviceName.split('.')[0:3]) in self.dbusTree)
+
+	def wanted_service_names(self):
+		return [s for s in self.dbusConn.list_names() if self.service_wanted(s)]
+
 	def scan_dbus_service(self, serviceName):
 		# make it a normal string instead of dbus string
 		serviceName = str(serviceName)
-
-		if any(serviceName.startswith(x) for x in self.ignoreServices):
-			logger.debug("Ignoring service %s" % serviceName)
-			return False
-
 		try:
 			return self.scan_dbus_service_inner(serviceName)
 		except:
