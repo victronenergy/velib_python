@@ -173,12 +173,19 @@ class DbusMonitor(object):
 		#decouple, and process in main loop
 		GLib.idle_add(exit_on_error, self._process_name_owner_changed, name, oldowner, newowner)
 
+	def _async_scan_callback(self, errors):
+		# Do a legacy scan on services that could not be scanned with GetItems
+		for name in errors:
+			logging.info(f"Doing legacy scan on {name}")
+			if self.scan_dbus_service_legacy(name) and \
+						  self.deviceAddedCallback is not None:
+				self.deviceAddedCallback(name, self.get_device_instance(name))
+
 	def _process_name_owner_changed(self, name, oldowner, newowner):
 		if newowner != '':
 			# so we found some new service. Check if we can do something with it.
-			if self.service_wanted(name) and self.scan_dbus_service(name) and \
-					self.deviceAddedCallback is not None:
-				self.deviceAddedCallback(name, self.get_device_instance(name))
+			self.scan_dbus_services_async(services=(name,),
+				callback=self._async_scan_callback)
 
 		elif name in self.servicesByName:
 			# it disappeared, we need to remove it.
@@ -220,19 +227,7 @@ class DbusMonitor(object):
 	# Scans the given dbus service to see if it contains anything interesting for us. If it does, add
 	# it to our list of monitored D-Bus services.
 	def scan_dbus_service_inner(self, serviceName):
-		paths = self.dbusTree.get('.'.join(serviceName.split('.')[0:3]), None)
-		if paths is None:
-			logger.debug("Ignoring service %s, not in the tree" % serviceName)
-			return False
-
 		logger.info("Found: %s, scanning and storing items" % serviceName)
-		serviceId = self.dbusConn.get_name_owner(serviceName)
-
-		# we should never be notified to add a D-Bus service that we already have. If this assertion
-		# raises, check process_name_owner_changed, and D-Bus workings.
-		assert serviceName not in self.servicesByName
-		assert serviceId not in self.servicesById
-
 		# Try to fetch everything with a GetItems, then fall back to older
 		# methods if that fails
 		try:
@@ -240,9 +235,13 @@ class DbusMonitor(object):
 		except dbus.exceptions.DBusException:
 			logger.info("GetItems failed, trying legacy methods")
 		else:
+			serviceId = self.dbusConn.get_name_owner(serviceName)
 			return self.scan_dbus_service_getitems_done(serviceName, serviceId, values) is not None
 
-		if serviceName == 'com.victronenergy.settings' or serviceName == 'com.victronenergy.platform':
+		return self.scan_dbus_service_legacy(serviceName)
+
+	def scan_dbus_service_legacy(self, serviceName):
+		if serviceName in ('com.victronenergy.settings', 'com.victronenergy.platform'):
 			di = 0
 		elif serviceName.startswith('com.victronenergy.vecan.'):
 			di = 0
@@ -257,6 +256,7 @@ class DbusMonitor(object):
 				di = int(di)
 
 		logger.info("       %s has device instance %s" % (serviceName, di))
+		serviceId = self.dbusConn.get_name_owner(serviceName)
 		service = self.make_service(serviceId, serviceName, di)
 
 		# Let's try to fetch everything in one go
@@ -267,6 +267,10 @@ class DbusMonitor(object):
 			texts.update(self.dbusConn.call_blocking(serviceName, '/', VE_INTERFACE, 'GetText', '', []))
 		except:
 			pass
+
+		paths = self.dbusTree.get('.'.join(serviceName.split('.')[0:3]), None)
+		if paths is None:
+			return False
 
 		for path, options in paths.items():
 			# path will be the D-Bus path: '/Ac/ActiveIn/L1/V'
@@ -296,7 +300,6 @@ class DbusMonitor(object):
 					text = None
 
 			service.paths[path] = self.make_monitor(service, path, unwrap_dbus_value(value), unwrap_dbus_value(text), options)
-
 
 		logger.debug("Finished scanning and storing items for %s" % serviceName)
 
