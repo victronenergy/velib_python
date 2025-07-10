@@ -84,6 +84,25 @@ class Service(object):
 	def service_class(self):
 		return '.'.join(self.name.split('.')[:3])
 
+class ScanProgress(object):
+	def __init__(self, onfinish):
+		self.services = set()
+		self.errors = set()
+		self.onfinish = onfinish
+
+	def add(self, service):
+		self.services.add(service)
+
+	def complete(self, service):
+		self.services.discard(service)
+		if not self.services and self.onfinish is not None:
+			# services is empty now
+			self.onfinish(list(self.errors))
+
+	def error(self, service):
+		self.errors.add(service)
+		self.complete(service)
+
 class DbusMonitor(object):
 	## Constructor
 	def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
@@ -221,7 +240,7 @@ class DbusMonitor(object):
 		except dbus.exceptions.DBusException:
 			logger.info("GetItems failed, trying legacy methods")
 		else:
-			return self.scan_dbus_service_getitems_done(serviceName, serviceId, values)
+			return self.scan_dbus_service_getitems_done(serviceName, serviceId, values) is not None
 
 		if serviceName == 'com.victronenergy.settings' or serviceName == 'com.victronenergy.platform':
 			di = 0
@@ -289,6 +308,48 @@ class DbusMonitor(object):
 
 		return True
 
+	def scan_dbus_services_async(self, services=None, callback=None):
+		progress = ScanProgress(callback)
+		for serviceName in services if services else self.wanted_service_names():
+			# Start by getting nameowner
+			progress.add(serviceName)
+			self.get_name_owner_async(progress, serviceName)
+
+	# Async scan, starting with GetNameOwner and then GetItems
+	def scan_async_error(error, progress, serviceName, exc):
+		logger.error("Ignoring %s because of error while scanning:" % (serviceName))
+		logger.error(str(exc))
+		# if GetNameOwner fails, there is no point in adding it to error list.
+		# So simply complete() it.
+		progress.complete(serviceName)
+
+	def get_name_owner_async(self, progress, serviceName):
+		self.dbusConn.call_async('org.freedesktop.DBus',
+			'/org/freedesktop/DBus', 'org.freedesktop.DBus', 'GetNameOwner',
+			's', (serviceName, ),
+			partial(self.get_name_owner_async_done, progress, serviceName),
+			partial(self.scan_async_error, progress, serviceName))
+
+	def get_name_owner_async_done(self, progress, serviceName, owner):
+		self.dbusConn.call_async(serviceName, '/', VE_INTERFACE,
+			'GetItems', '', [],
+			partial(self.get_items_async_done, progress, serviceName, owner),
+			partial(self.get_items_async_error, progress, serviceName, owner))
+
+	def get_items_async_done(self, progress, serviceName, owner, values):
+		di = self.scan_dbus_service_getitems_done(serviceName, owner, values)
+		if di is not None:
+			if self.deviceAddedCallback is not None:
+				self.deviceAddedCallback(serviceName, di)
+			progress.complete(serviceName)
+		else:
+			progress.error(serviceName)
+
+	def get_items_async_error(self, progress, serviceName, owner, exc):
+		# Fall back to fetching deviceinstance, and GetValue/GetText
+		# Store item, so it can be scanned later
+		progress.error(serviceName)
+
 	def scan_dbus_service_getitems_done(self, serviceName, serviceId, values):
 		# Keeping these exceptions for legacy reasons
 		if serviceName == 'com.victronenergy.settings' or serviceName == 'com.victronenergy.platform':
@@ -300,7 +361,7 @@ class DbusMonitor(object):
 				di = values['/DeviceInstance']['Value']
 			except KeyError:
 				logger.info("       %s was skipped because it has no device instance" % serviceName)
-				return False
+				return None
 			else:
 				di = int(di)
 
@@ -321,7 +382,7 @@ class DbusMonitor(object):
 		self.servicesByName[serviceName] = service
 		self.servicesById[serviceId] = service
 		self.servicesByClass[service.service_class].append(service)
-		return True
+		return di
 
 	def handler_item_changes(self, items, senderId):
 		if not isinstance(items, dict):
