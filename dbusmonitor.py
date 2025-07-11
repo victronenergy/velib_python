@@ -543,6 +543,12 @@ class DbusMonitor(object):
 				path="/", bus_name=serviceName),
 		))
 
+	def set_device_added_callback(self, callback):
+		""" This allows changing the callback to something else, or to
+		    set it later, eg if you want finish starting before adding a
+		    callback. """
+		self.deviceAddedCallback = callback
+
 class AsyncDbusMonitor(DbusMonitor):
 	def __init__(self, *args, scanCompleteCallback=None, **kwargs):
 		super().__init__(*args, **kwargs)

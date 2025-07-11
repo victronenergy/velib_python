@@ -135,6 +135,9 @@ class MockDbusMonitor(object):
     def track_value(self, serviceName, objectPath, callback, *args, **kwargs):
         self._watches[serviceName][objectPath] = partial(callback, *args, **kwargs)
 
+    def set_device_added_callback(self, callback):
+        self._device_added_callback = callback
+
     @property
     def dbusConn(self):
         raise dbus.DBusException("No Connection")
