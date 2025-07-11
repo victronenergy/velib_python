@@ -7,8 +7,9 @@ from functools import partial
 # that all simulated D-Bus paths passed to set_value must be part of the dbusTree passed to the constructor of
 # the monitor.
 class MockDbusMonitor(object):
-    def __init__(self, dbusTree, valueChangedCallback=None, deviceAddedCallback=None,
-            deviceRemovedCallback=None, mountEventCallback=None, vebusDeviceInstance0=False, checkPaths=True):
+    def __init__(self, dbusTree, valueChangedCallback=None,
+            deviceAddedCallback=None, deviceRemovedCallback=None,
+            checkPaths=True, **kwargs):
         self._services = {}
         self._tree = {}
         self._seen = defaultdict(set)
