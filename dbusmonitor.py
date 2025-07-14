@@ -153,15 +153,15 @@ class DbusMonitor(object):
 			signal_name='ItemsChanged', path='/',
 			sender_keyword='senderId')
 
-		logger.info('===== Search on dbus for services that we will monitor starting... =====')
+		logger.info('===== Scanning dbus... =====')
 		self._scan_dbus()
-		logger.info('===== Search on dbus for services that we will monitor finished =====')
 
 	def _scan_dbus(self):
 		""" Does the actual scan. Intent is that this can be overridden in
 		    subclasses. """
 		for serviceName in self.wanted_service_names():
 			self.scan_dbus_service(serviceName)
+		logger.info('===== Sync scan complete =====')
 
 	@staticmethod
 	def make_service(serviceId, serviceName, deviceInstance):
@@ -571,8 +571,10 @@ class AsyncDbusMonitor(DbusMonitor):
 						  self.deviceAddedCallback is not None:
 				self.deviceAddedCallback(name, self.get_device_instance(name))
 
-		if startup and self.scanCompleteCallback is not None:
-			self.scanCompleteCallback(self)
+		if startup:
+			logger.info('===== Async scan complete =====')
+			if self.scanCompleteCallback is not None:
+				self.scanCompleteCallback(self)
 
 	# Async scan, starting with GetNameOwner and then GetItems
 	def scan_dbus_services_async(self, services=None, callback=None):
