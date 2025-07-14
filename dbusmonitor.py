@@ -555,13 +555,15 @@ class AsyncDbusMonitor(DbusMonitor):
 		self.scanCompleteCallback = scanCompleteCallback
 
 	def _scan_dbus(self):
-		self.scan_dbus_services_async(callback=self._async_scan_callback)
+		# Pass True, this is an initial scan triggered at startup
+		self.scan_dbus_services_async(callback=partial(
+			self._async_scan_callback, True))
 
 	def _process_newowner(self, name):
 		self.scan_dbus_services_async(services=(name,),
-			callback=self._async_scan_callback)
+			callback=partial(self._async_scan_callback, False))
 
-	def _async_scan_callback(self, errors):
+	def _async_scan_callback(self, startup, errors):
 		# Do a legacy scan on services that could not be scanned with GetItems
 		for name in errors:
 			logging.info(f"Doing legacy scan on {name}")
@@ -569,7 +571,7 @@ class AsyncDbusMonitor(DbusMonitor):
 						  self.deviceAddedCallback is not None:
 				self.deviceAddedCallback(name, self.get_device_instance(name))
 
-		if self.scanCompleteCallback is not None:
+		if startup and self.scanCompleteCallback is not None:
 			self.scanCompleteCallback(self)
 
 	# Async scan, starting with GetNameOwner and then GetItems
