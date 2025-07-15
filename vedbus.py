@@ -69,6 +69,7 @@ class VeDbusService(object):
 
 		# dict containing the onchange callbacks, for each object. Object path is the key
 		self._onchangecallbacks = {}
+		self._onsetcallbacks = {}
 
 		# Connect to session bus whenever present, else use the system bus
 		self._dbusconn = bus or (dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus())
@@ -110,18 +111,24 @@ class VeDbusService(object):
 	def get_name(self):
 		return self.name
 
-	# @param callbackonchange	function that will be called when this value is changed. First parameter will
+	# @param onchangecallback	function that will be called when this value is changed. First parameter will
 	#							be the path of the object, second the new value. This callback should return
 	#							True to accept the change, False to reject it.
+	# @param onsetcallback	    function that will be called when this value is set. First parameter will
+	#							be the path of the object, second the new value. This callback should return
+	#							True to accept the change, False to reject it. Fires despite of value changes.
 	def add_path(self, path, value, description="", writeable=False,
-					onchangecallback=None, gettextcallback=None, valuetype=None, itemtype=None):
+					onchangecallback=None, gettextcallback=None, valuetype=None, itemtype=None, onsetcallback=None):
 
 		if onchangecallback is not None:
 			self._onchangecallbacks[path] = onchangecallback
 
+		if onsetcallback is not None:
+			self._onsetcallbacks[path] = onsetcallback
+
 		itemtype = itemtype or VeDbusItemExport
 		item = itemtype(self._dbusconn, path, value, description, writeable,
-				self._value_changed, gettextcallback, deletecallback=self._item_deleted, valuetype=valuetype)
+				self._value_changed, gettextcallback, deletecallback=self._item_deleted, valuetype=valuetype, onsetcallback=self._value_set)
 
 		spl = path.split('/')
 		for i in range(2, len(spl)):
@@ -154,6 +161,12 @@ class VeDbusService(object):
 			return True
 
 		return self._onchangecallbacks[path](path, newvalue)
+	
+	def _value_set(self, path, newvalue):
+		if path not in self._onsetcallbacks:
+			return True
+
+		return self._onsetcallbacks[path](path, newvalue)
 
 	def _item_deleted(self, path):
 		self._dbusobjects.pop(path)
@@ -505,10 +518,11 @@ class VeDbusItemExport(dbus.service.Object):
 	#					  value. This callback should return True to accept the change, False to reject it.
 	def __init__(self, bus, objectPath, value=None, description=None, writeable=False,
 					onchangecallback=None, gettextcallback=None, deletecallback=None,
-					valuetype=None):
+					valuetype=None, onsetcallback=None):
 		dbus.service.Object.__init__(self, bus, objectPath)
 		self._path = objectPath
 		self._onchangecallback = onchangecallback
+		self._onsetcallback = onsetcallback
 		self._gettextcallback = gettextcallback
 		self._value = value
 		self._description = description
@@ -571,6 +585,12 @@ class VeDbusItemExport(dbus.service.Object):
 			except (ValueError, TypeError):
 				return 1 # NOT OK
 
+		#call the onset callback always, even if there was no change. 
+		if self._onsetcallback is not None:
+			if not self._onsetcallback(self.__dbus_object_path__, newvalue):
+				return 2 # Not ok, needs no further valuechanged consideration.
+			
+		#only proceed to onchange callback, if there was a change.
 		if newvalue == self._value:
 			return 0  # OK
 
