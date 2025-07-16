@@ -19,11 +19,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
 import dbus
 import dbus.service
-import inspect
 import logging
-import argparse
-import pprint
-import traceback
 import os
 from collections import defaultdict
 from functools import partial
@@ -218,6 +214,7 @@ class DbusMonitor(object):
 			return self.scan_dbus_service_inner(serviceName)
 		except:
 			logger.error("Ignoring %s because of error while scanning:" % (serviceName))
+			import traceback
 			traceback.print_exc()
 			return False
 

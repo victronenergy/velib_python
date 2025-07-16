@@ -3,7 +3,6 @@
 
 import dbus.service
 import logging
-import traceback
 import os
 import weakref
 from collections import defaultdict
@@ -433,6 +432,7 @@ class VeDbusItemImport(object):
 				try:
 					self._eventCallback(self._serviceName, self._path, changes)
 				except:
+					import traceback
 					traceback.print_exc()
 					os._exit(1)  # sys.exit() is not used, since that also throws an exception
 

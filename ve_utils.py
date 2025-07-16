@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import sys
 from traceback import print_exc
 from os import _exit as os_exit
 from os import statvfs
