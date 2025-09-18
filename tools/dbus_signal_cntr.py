@@ -62,7 +62,7 @@ def printall():
 
 	print(chr(27) + "[2J" + chr(27) + "[;H")
 
-	row_format = "{:<60} {:>4}  {:>4}%  {:>4.2f} / s"
+	row_format = "{:<60} {:>4}   {:>5.1f} %  {:>6.2f} / s"
 
 	print(row_format.format("Total", total, 100, total / t_elapsed))
 
