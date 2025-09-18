@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from dbus.mainloop.glib import DBusGMainLoop
-from gi.repository import GObject as gobject
+from gi.repository import GLib
 import dbus
 import dbus.service
 from pprint import pprint
@@ -84,9 +84,9 @@ def main():
 
 	d = DbusTracker()
 
-	gobject.timeout_add(2000, printall)
+	GLib.timeout_add(2000, printall)
 
-	mainloop = gobject.MainLoop()
+	mainloop = GLib.MainLoop()
 	mainloop.run()
 
 
