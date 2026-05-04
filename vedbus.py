@@ -547,6 +547,21 @@ class VeDbusItemExport(dbus.service.Object):
 	def local_get_value(self):
 		return self._value
 
+	def unwrap_value(self, newvalue):
+		return unwrap_dbus_value(newvalue)
+
+	def coerce_value(self, newvalue):
+		# If value type is enforced, cast it. If the type can be coerced
+		# python will do it for us. This allows ints to become floats,
+		# or bools to become ints. Additionally also allow None, so that
+		# a path may be invalidated.
+		if self._type is not None and newvalue is not None:
+			return self._type(newvalue)
+		return newvalue
+
+	def is_equal(self, newvalue):
+		return newvalue == self._value
+
 	# ==== ALL FUNCTIONS BELOW THIS LINE WILL BE CALLED BY OTHER PROCESSES OVER THE DBUS ====
 
 	## Dbus exported method SetValue
@@ -559,24 +574,19 @@ class VeDbusItemExport(dbus.service.Object):
 		if not self._writeable:
 			return 1  # NOT OK
 
-		newvalue = unwrap_dbus_value(newvalue)
+		newvalue = self.unwrap_value(newvalue)
 
-		# If value type is enforced, cast it. If the type can be coerced
-		# python will do it for us. This allows ints to become floats,
-		# or bools to become ints. Additionally also allow None, so that
-		# a path may be invalidated.
-		if self._type is not None and newvalue is not None:
-			try:
-				newvalue = self._type(newvalue)
-			except (ValueError, TypeError):
-				return 1 # NOT OK
+		try:
+			newvalue = self.coerce_value(newvalue)
+		except (ValueError, TypeError):
+			return 1  # NOT OK
 
-		if newvalue == self._value:
+		if self.is_equal(newvalue):
 			return 0  # OK
 
 		# call the callback given to us, and check if new value is OK.
 		if (self._onchangecallback is None or
-				(self._onchangecallback is not None and self._onchangecallback(self.__dbus_object_path__, newvalue))):
+				self._onchangecallback(self.__dbus_object_path__, newvalue)):
 
 			self.local_set_value(newvalue)
 			return 0  # OK
