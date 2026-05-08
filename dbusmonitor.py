@@ -34,7 +34,7 @@ VE_INTERFACE = "com.victronenergy.BusItem"
 notfound = object()
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+
 class SystemBus(dbus.bus.BusConnection):
 	def __new__(cls):
 		return dbus.bus.BusConnection.__new__(cls, dbus.bus.BusConnection.TYPE_SYSTEM)
