@@ -175,6 +175,12 @@ class DbusMonitor(object):
 		#decouple, and process in main loop
 		GLib.idle_add(exit_on_error, self._process_name_owner_changed, name, oldowner, newowner)
 
+	def scanned_owner(self, serviceName):
+		""" Returns the owner of serviceName if we already scanned it,
+		    otherwise None. """
+		service = self.servicesByName.get(serviceName)
+		return None if service is None else service.id
+
 	def _process_newowner(self, name, owner):
 		# Do a sync scan, and call deviceAddedCallback if we have it
 		if self.scan_dbus_service(name, owner) and self.deviceAddedCallback is not None:
@@ -182,6 +188,15 @@ class DbusMonitor(object):
 
 	def _process_name_owner_changed(self, name, oldowner, newowner):
 		if newowner != '':
+			newowner = str(newowner)
+
+			# A service that shows up while a scan is in progress is found
+			# by both that scan and this signal. Ignore the signal if this
+			# owner is already known, otherwise the service is scanned
+			# twice and deviceAddedCallback is called twice.
+			if self.scanned_owner(name) == newowner:
+				return
+
 			# so we found some new service. Check if we can do something with it.
 			self._process_newowner(name, newowner)
 
@@ -552,8 +567,18 @@ class DbusMonitor(object):
 
 class AsyncDbusMonitor(DbusMonitor):
 	def __init__(self, *args, scanCompleteCallback=None, **kwargs):
+		# Services being scanned right now, and the owner we're scanning.
+		# Set before the super call, the constructor starts a scan.
+		self.pendingScans = {}
 		super().__init__(*args, **kwargs)
 		self.scanCompleteCallback = scanCompleteCallback
+
+	def scanned_owner(self, serviceName):
+		# A scan that is still in flight also counts as known
+		try:
+			return self.pendingScans[serviceName]
+		except KeyError:
+			return super().scanned_owner(serviceName)
 
 	def _scan_dbus(self):
 		# Pass True, this is an initial scan triggered at startup
@@ -569,6 +594,9 @@ class AsyncDbusMonitor(DbusMonitor):
 	def _async_scan_callback(self, startup, errors):
 		# Do a legacy scan on services that could not be scanned with GetItems
 		for name in errors:
+			if name in self.servicesByName:
+				continue # It was scanned in the meantime
+
 			logging.info(f"Doing legacy scan on {name}")
 			try:
 				if self.scan_dbus_service_legacy(name) and \
@@ -610,12 +638,20 @@ class AsyncDbusMonitor(DbusMonitor):
 	def scan_items_async(self, progress, serviceName, owner):
 		# make it a normal string instead of dbus string
 		owner = str(owner)
+
+		# Already scanned, or being scanned, see _process_name_owner_changed
+		if self.scanned_owner(serviceName) == owner:
+			progress.complete(serviceName)
+			return
+
+		self.pendingScans[serviceName] = owner
 		self.dbusConn.call_async(serviceName, '/', VE_INTERFACE,
 			'GetItems', '', [],
 			partial(self.get_items_async_done, progress, serviceName, owner),
 			partial(self.get_items_async_error, progress, serviceName, owner))
 
 	def get_items_async_done(self, progress, serviceName, owner, values):
+		self.pendingScans.pop(serviceName, None)
 		di = self.scan_dbus_service_getitems_done(serviceName, owner, values)
 		if di is not None:
 			if self.deviceAddedCallback is not None:
@@ -627,6 +663,7 @@ class AsyncDbusMonitor(DbusMonitor):
 	def get_items_async_error(self, progress, serviceName, owner, exc):
 		# Fall back to fetching deviceinstance, and GetValue/GetText
 		# Store item, so it can be scanned later
+		self.pendingScans.pop(serviceName, None)
 		progress.error(serviceName)
 
 
