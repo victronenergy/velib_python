@@ -17,7 +17,7 @@ from gi.repository import GLib
 
 # Local
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../'))
-from settingsdevice import SettingsDevice
+from settingsdevice import SettingsDevice, VeDbusSettingItem
 
 # These tests need localsettings to be running, e.g. on a private session bus:
 # dbus-run-session -- sh -c 'python3 localsettings.py --path=$(mktemp -d) & sleep 2; python3 test_settingsdevice.py'
@@ -108,6 +108,16 @@ class CreateSettingsTest(unittest.TestCase):
 		other.call_blocking('com.victronenergy.settings', path, 'com.victronenergy.BusItem',
 			'SetValue', 'v', [dbus.Int32(0, variant_level=1)])
 		self.run_mainloop()
+		self.assertEqual(settings['int'], 0)
+		self.assertEqual(self.changes, [('int', 1, 0)])
+
+	def test_items_changed(self):
+		settings = self.make_settings()
+		path = settings._settings['int']._path
+		VeDbusSettingItem._items_changed_handler({
+			path: {'Value': dbus.Int32(0), 'Text': '0'},
+			'/Settings/NotOurs': {'Value': dbus.Int32(3)},
+		})
 		self.assertEqual(settings['int'], 0)
 		self.assertEqual(self.changes, [('int', 1, 0)])
 
