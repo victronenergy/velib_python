@@ -57,7 +57,7 @@ class VeDbusSettingItem(object):
 			return
 		for path, changes in items.items():
 			try:
-				o = self._tracked[path]
+				o = VeDbusSettingItem._tracked[path]
 				v = changes['Value']
 			except KeyError:
 				continue # Not our setting, or no value
