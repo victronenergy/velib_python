@@ -87,15 +87,32 @@ class VeDbusSettingItem(object):
 	def get_value(self):
 		return self._value
 
+	def _refresh_value(self):
+		self._value = unwrap_dbus_value(self._bus.call_blocking(
+				self._servicename, self._path, dbus_interface=VE_INTERFACE,
+				method='GetValue', signature="", args=[]))
+
 	def set_value(self, v):
-		return self._bus.call_blocking(self._servicename, self._path,
+		r = self._bus.call_blocking(self._servicename, self._path,
 				dbus_interface=VE_INTERFACE, method='SetValue', signature="v",
 				args=[wrap_dbus_value(v)])
 
+		# Read back what localsettings stored, it can differ from v, e.g.
+		# after a type conversion or a ClassAndVrmInstance being reassigned.
+		if r == 0:
+			self._refresh_value()
+
+		return r
+
 	def set_default(self):
-		return self._bus.call_blocking(self._servicename, self._path,
+		r = self._bus.call_blocking(self._servicename, self._path,
 				dbus_interface=VE_INTERFACE, method='SetDefault', signature="",
 				args=[])
+
+		if r == 0:
+			self._refresh_value()
+
+		return r
 
 ## The Settings Device class.
 # Used by python programs, such as the vrm-logger, to read and write settings they
