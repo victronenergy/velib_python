@@ -13,10 +13,14 @@ import dbus
 import threading
 import fcntl
 from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GLib
 
 # Local
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../'))
 from settingsdevice import SettingsDevice
+
+# These tests need localsettings to be running, e.g. on a private session bus:
+# dbus-run-session -- sh -c 'python3 localsettings.py --path=$(mktemp -d) & sleep 2; python3 test_settingsdevice.py'
 
 logger = logging.getLogger(__file__)
 
@@ -26,7 +30,10 @@ class CreateSettingsTest(unittest.TestCase):
 	# what the should be, by using the bare dbus import objects and functions.
 
 	def setUp(self):
-		pass
+		self.bus = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus()
+		if 'com.victronenergy.settings' not in self.bus.list_names():
+			self.skipTest('com.victronenergy.settings is not running')
+		self.changes = []
 
 	def tearDown(self):
 		pass
@@ -54,8 +61,55 @@ class CreateSettingsTest(unittest.TestCase):
 		self.assertEqual(self.dbusConn.get_object('com.victronenergy.dbusexample', '/Float').GetText(), '1.5')
 		"""
 
-	def handle_changed_setting(setting, oldvalue, newvalue):
-		pass
+	def handle_changed_setting(self, setting, oldvalue, newvalue):
+		self.changes.append((setting, oldvalue, newvalue))
+
+	def make_settings(self):
+		rnd = os.urandom(16).hex()
+		settings = SettingsDevice(bus=self.bus,
+			supportedSettings={
+				'int': ['/Settings/' + rnd + '/Int', 1, 0, 1],
+				'string': ['/Settings/' + rnd + '/String', '', 0, 0],
+			},
+			eventCallback=self.handle_changed_setting)
+		# handle the signals of adding the settings
+		self.run_mainloop()
+		self.changes = []
+		return settings
+
+	def run_mainloop(self):
+		loop = GLib.MainLoop()
+		GLib.timeout_add(500, loop.quit)
+		loop.run()
+
+	def test_read_after_write(self):
+		settings = self.make_settings()
+		for v in (0, 1, 0):
+			settings['int'] = v
+			self.assertEqual(settings['int'], v)
+
+	def test_read_after_write_returns_stored_value(self):
+		# localsettings converts the value to the type of the setting
+		settings = self.make_settings()
+		settings['string'] = 5
+		self.assertEqual(settings['string'], '5')
+
+	def test_read_after_set_default(self):
+		settings = self.make_settings()
+		settings['int'] = 0
+		self.run_mainloop()
+		settings._settings['int'].set_default()
+		self.assertEqual(settings['int'], 1)
+
+	def test_change_by_other_client(self):
+		settings = self.make_settings()
+		path = settings._settings['int']._path
+		other = dbus.SessionBus(private=True) if 'DBUS_SESSION_BUS_ADDRESS' in os.environ else dbus.SystemBus(private=True)
+		other.call_blocking('com.victronenergy.settings', path, 'com.victronenergy.BusItem',
+			'SetValue', 'v', [dbus.Int32(0, variant_level=1)])
+		self.run_mainloop()
+		self.assertEqual(settings['int'], 0)
+		self.assertEqual(self.changes, [('int', 1, 0)])
 
 if __name__ == "__main__":
 	logging.basicConfig(stream=sys.stderr)
