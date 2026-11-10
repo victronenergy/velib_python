@@ -33,7 +33,7 @@ class CreateSettingsTest(unittest.TestCase):
 
 	def test_adding_new_settings(self):
 		# to make sure that we make new settings, put something random in its name:
-		rnd = os.urandom(16).encode('hex')
+		rnd = os.urandom(16).hex()
 
 		# ofcourse below could be simplified, for now just use all settings from the example:
 		settings = SettingsDevice(
