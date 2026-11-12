@@ -80,7 +80,8 @@ class VeDbusSettingItem(object):
 
 	def __del__(self):
 		try:
-			del self._tracked[self._path]
+			if self._tracked.get(self._path) is self:
+				del self._tracked[self._path]
 		except (AttributeError, KeyError):
 			pass
 
