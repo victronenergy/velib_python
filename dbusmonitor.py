@@ -579,8 +579,8 @@ class AsyncDbusMonitor(DbusMonitor):
 		# Services being scanned right now, and the owner we're scanning.
 		# Set before the super call, the constructor starts a scan.
 		self.pendingScans = {}
-		super().__init__(*args, **kwargs)
 		self.scanCompleteCallback = scanCompleteCallback
+		super().__init__(*args, **kwargs)
 
 	def scanned_owner(self, serviceName):
 		# A scan that is still in flight also counts as known
@@ -621,8 +621,14 @@ class AsyncDbusMonitor(DbusMonitor):
 
 	# Async scan, starting with GetNameOwner and then GetItems
 	def scan_dbus_services_async(self, callback=None):
+		serviceNames = list(self.wanted_service_names())
+		if not serviceNames:
+			if callback is not None:
+				callback([])
+			return
+
 		progress = ScanProgress(callback)
-		for serviceName in self.wanted_service_names():
+		for serviceName in serviceNames:
 			# Start by getting nameowner
 			progress.add(serviceName)
 			self.get_name_owner_async(progress, serviceName)
