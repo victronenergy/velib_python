@@ -227,7 +227,7 @@ def wrap_dbus_value(value):
 		# assertion "(type == DBUS_TYPE_ARRAY && contained_signature &&
 		# *contained_signature == DBUS_DICT_ENTRY_BEGIN_CHAR) || (contained_signature == NULL ||
 		# _dbus_check_is_valid_signature (contained_signature))" failed in file ...'
-		return dbus.Dictionary({(k, wrap_dbus_value(v)) for k, v in value.items()}, variant_level=1)
+		return dbus.Dictionary({k: wrap_dbus_value(v) for k, v in value.items()}, variant_level=1)
 	return value
 
 
