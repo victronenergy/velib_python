@@ -243,7 +243,7 @@ def unwrap_dbus_value(val):
 		return float(val)
 	if isinstance(val, dbus.Array):
 		v = [unwrap_dbus_value(x) for x in val]
-		return None if len(v) == 0 else v
+		return None if len(v) == 0 and val.signature in (None, 'i') else v
 	if isinstance(val, (dbus.Signature, dbus.String)):
 		return str(val)
 	# Python has no byte type, so we convert to an integer.
