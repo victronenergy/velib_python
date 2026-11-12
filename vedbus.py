@@ -157,6 +157,7 @@ class VeDbusService(object):
 
 	def _item_deleted(self, path):
 		self._dbusobjects.pop(path)
+		self._onchangecallbacks.pop(path, None)
 		for np in list(self._dbusnodes.keys()):
 			if np != '/':
 				for ip in self._dbusobjects:
