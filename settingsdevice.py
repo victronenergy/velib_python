@@ -146,10 +146,10 @@ class SettingsDevice(object):
 
 		count = 0
 		while True:
-			if 'com.victronenergy.settings' in self._bus.list_names():
+			if self._dbus_name in self._bus.list_names():
 				break
 			if count == timeout:
-				raise Exception("The settings service com.victronenergy.settings does not exist!")
+				raise Exception(f"The settings service {self._dbus_name} does not exist!")
 			count += 1
 			logging.info('waiting for settings')
 			time.sleep(1)
