@@ -250,7 +250,7 @@ def unwrap_dbus_value(val):
 	if isinstance(val, dbus.Byte):
 		return int(val)
 	if isinstance(val, dbus.ByteArray):
-		return "".join([bytes(x) for x in val])
+		return bytes(val)
 	if isinstance(val, (list, tuple)):
 		return [unwrap_dbus_value(x) for x in val]
 	if isinstance(val, (dbus.Dictionary, dict)):
