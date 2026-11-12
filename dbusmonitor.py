@@ -594,6 +594,11 @@ class AsyncDbusMonitor(DbusMonitor):
 		self.scan_dbus_services_async(callback=partial(
 			self._async_scan_callback, True))
 
+	def _process_name_owner_changed(self, name, oldowner, newowner):
+		if oldowner != newowner and self.pendingScans.get(name) == oldowner:
+			del self.pendingScans[name]
+		super()._process_name_owner_changed(name, oldowner, newowner)
+
 	def _process_newowner(self, name, owner):
 		# We already have the owner from NameOwnerChanged, so skip GetNameOwner
 		progress = ScanProgress(partial(self._async_scan_callback, False))
