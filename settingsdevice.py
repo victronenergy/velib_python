@@ -39,10 +39,11 @@ class VeDbusSettingItem(object):
 	def _setting_changed_handler(change, path=None):
 		try:
 			o = VeDbusSettingItem._tracked[path]
+			v = change['Value']
 		except KeyError:
-			pass # Not our setting
+			pass # Not our setting, or no value
 		else:
-			o._value = unwrap_dbus_value(change['Value'])
+			o._value = unwrap_dbus_value(v)
 			try:
 				t = change['Text']
 			except KeyError:
