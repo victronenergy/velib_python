@@ -431,17 +431,17 @@ class DbusMonitor(object):
 
 		# And do the rest of the processing in on the mainloop
 		if self.valueChangedCallback is not None:
-			GLib.idle_add(exit_on_error, self._execute_value_changes, service.name, path, {
+			GLib.idle_add(exit_on_error, self._execute_value_changes, service, path, {
 				'Value': value, 'Text': text}, a.options)
 
-	def _execute_value_changes(self, serviceName, objectPath, changes, options):
-		# double check that the service still exists, as it might have
-		# disappeared between scheduling-for and executing this function.
-		if serviceName not in self.servicesByName:
+	def _execute_value_changes(self, service, objectPath, changes, options):
+		# The service may have disappeared or been replaced since this
+		# callback was scheduled. Do not deliver a previous owner's values.
+		if self.servicesByName.get(service.name) is not service:
 			return
 
-		self.valueChangedCallback(serviceName, objectPath,
-			options, changes, self.get_device_instance(serviceName))
+		self.valueChangedCallback(service.name, objectPath,
+			options, changes, service.deviceInstance)
 
 	# Gets the value for a certain servicename and path
 	# The default_value is returned when:
