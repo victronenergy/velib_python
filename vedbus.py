@@ -474,7 +474,7 @@ class VeDbusTreeExport(dbus.service.Object):
 		return self._get_value_handler(self._path, True)
 
 	def local_get_value(self):
-		return self._get_value_handler(self.path)
+		return self._get_value_handler(self._path)
 
 class VeDbusRootExport(VeDbusTreeExport):
 	@dbus.service.signal('com.victronenergy.BusItem', signature='a{sa{sv}}')
